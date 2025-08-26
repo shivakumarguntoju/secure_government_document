@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
 import { validateFileType, validateFileSize } from '../../utils/validation';
-import useDocuments from '../../hooks/useDocuments';
+import useDocuments from '../../hooks/useDocuments.jsx';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Input from '../common/Input';

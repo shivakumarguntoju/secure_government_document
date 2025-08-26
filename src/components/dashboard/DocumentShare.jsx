@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { UserPlus, Mail, AlertCircle } from 'lucide-react';
 import { validateEmail, validateAadhaar } from '../../utils/validation';
-import useDocuments from '../../hooks/useDocuments';
+import useDocuments from '../../hooks/useDocuments.jsx';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Input from '../common/Input';

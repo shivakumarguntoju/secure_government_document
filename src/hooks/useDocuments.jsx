@@ -1,7 +1,7 @@
 // Documents Hook
 import { useState, useEffect } from 'react';
 import DocumentService from '../services/documentService';
-import { useAuth } from './useAuth';
+import { useAuth } from './useAuth.jsx';
 import Logger from '../utils/logger';
 
 export const useDocuments = (filters = {}) => {

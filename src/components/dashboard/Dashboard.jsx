@@ -1,8 +1,8 @@
 // Dashboard Component
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, Users, Activity, TrendingUp, Shield } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-import useDocuments from '../../hooks/useDocuments';
+import { useAuth } from '../../hooks/useAuth.jsx';
+import useDocuments from '../../hooks/useDocuments.jsx';
 import DocumentService from '../../services/documentService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Button from '../common/Button';

@@ -1,7 +1,7 @@
 // Profile Component
 import React, { useState } from 'react';
 import { User, Mail, Phone, MapPin, Calendar, CreditCard, Edit3, Save, X } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth.jsx';
 import { validatePhone } from '../../utils/validation';
 import { maskAadhaar, formatDate } from '../../utils/helpers';
 import Button from '../common/Button';

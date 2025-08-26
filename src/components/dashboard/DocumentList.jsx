@@ -11,8 +11,8 @@ import {
   Search
 } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
-import { useAuth } from '../../hooks/useAuth';
-import useDocuments from '../../hooks/useDocuments';
+import { useAuth } from '../../hooks/useAuth.jsx';
+import useDocuments from '../../hooks/useDocuments.jsx';
 import { formatFileSize } from '../../utils/validation';
 import { truncateText } from '../../utils/helpers';
 import Button from '../common/Button';
