@@ -5,13 +5,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  // Demo Firebase configuration - Replace with your actual Firebase config
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDemo-Replace-With-Your-Actual-API-Key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "govt-docs-demo.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "govt-docs-demo",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "govt-docs-demo.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdef123456789012"
+  apiKey: "AIzaSyCFXqNXatWnPnZeSwhtSBn-tkHQFBelLUk",
+  authDomain: "government-document-bb52f.firebaseapp.com",
+  projectId: "government-document-bb52f",
+  storageBucket: "government-document-bb52f.firebasestorage.app",
+  messagingSenderId: "503997814033",
+  appId: "1:503997814033:web:3b773e78c259e6e23a68b0",
+  measurementId: "G-KR3YTWQ96V"
 };
 
 // Initialize Firebase
