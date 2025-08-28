@@ -185,7 +185,10 @@ class AuthService {
       'auth/user-disabled': 'This account has been disabled.',
       'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
       'auth/network-request-failed': 'Network error. Please check your connection.',
-      'auth/invalid-credential': 'Invalid email or password.'
+      'auth/invalid-credential': 'Invalid email or password.',
+      'auth/configuration-not-found': 'Firebase Authentication is not properly configured. Please enable Email/Password authentication in Firebase Console.',
+      'auth/project-not-found': 'Firebase project not found. Please check your configuration.',
+      'auth/invalid-api-key': 'Invalid Firebase API key. Please check your configuration.'
     };
     
     return errorMessages[errorCode] || 'An unexpected error occurred. Please try again.';
