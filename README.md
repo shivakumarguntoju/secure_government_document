@@ -61,20 +61,23 @@ npm install
 
 ### 3. Firebase Configuration
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-2. Enable Authentication, Firestore, and Storage services
-3. Copy your Firebase configuration
-4. Update `src/config/firebase.js` with your Firebase config:
+2. **CRITICAL: Enable Firebase Authentication Email/Password Provider**
+   - Go to **Authentication** → **Sign-in method** tab
+   - Click on **Email/Password** provider
+   - **Enable** both "Email/Password" and "Email link (passwordless sign-in)" if desired
+   - Click **Save**
+3. Enable Firestore Database:
+   - Go to **Firestore Database** → **Create database**
+   - Choose **Start in test mode** (for development)
+   - Select your preferred location
+4. Enable Cloud Storage:
+   - Go to **Storage** → **Get started**
+   - Choose **Start in test mode** (for development)
+   - Select your preferred location
+5. Copy your Firebase configuration from **Project Settings** → **General** → **Your apps**
+6. The Firebase configuration is already updated in `src/config/firebase.js` with your project credentials
 
-```javascript
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
-};
-```
+**⚠️ IMPORTANT**: The `auth/configuration-not-found` error occurs when Email/Password authentication is not enabled in Firebase Console. Make sure to complete step 2 above.
 
 ### 4. Firestore Security Rules
 Set up the following Firestore security rules:
