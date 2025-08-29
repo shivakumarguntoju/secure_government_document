@@ -50,6 +50,8 @@ const AppContent = () => {
         return <ActivityLog />;
       case 'settings':
         return <Settings />;
+    }
+  }
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
