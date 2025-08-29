@@ -117,3 +117,16 @@ export const generateOTP = (length = 6) => {
   }
   return otp;
 };
+
+/**
+ * Formats file size into KB/MB/GB
+ * @param {number} bytes - File size in bytes
+ * @returns {string} - Formatted file size string
+ */
+export const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
