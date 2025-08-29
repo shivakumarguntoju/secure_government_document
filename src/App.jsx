@@ -9,6 +9,9 @@ import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import Dashboard from './components/dashboard/Dashboard';
 import Profile from './components/profile/Profile';
+import Settings from './components/settings/Settings';
+import ActivityLog from './components/dashboard/ActivityLog';
+import Settings from './components/settings/Settings';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 const AppContent = () => {
@@ -43,18 +46,10 @@ const AppContent = () => {
         return <Dashboard />;
       case 'profile':
         return <Profile />;
+      case 'activity':
+        return <ActivityLog />;
       case 'settings':
-        return (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Settings</h2>
-            <p className="text-gray-600">Settings functionality coming soon...</p>
-          </div>
-        );
-      default:
-        return <Dashboard />;
-    }
-  };
-
+        return <Settings />;
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}

@@ -1,11 +1,12 @@
 // Sidebar Component
 import React from 'react';
-import { FileText, User, Settings, X } from 'lucide-react';
+import { FileText, User, Settings, Activity, X } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose, currentView, onViewChange }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FileText },
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'activity', label: 'Activity Log', icon: Activity },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

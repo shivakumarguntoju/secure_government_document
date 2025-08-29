@@ -1,6 +1,6 @@
 // Dashboard Component
 import React, { useState, useEffect } from 'react';
-import { FileText, Upload, Users, Activity, TrendingUp, Shield } from 'lucide-react';
+import { FileText, Upload, Users, Activity, TrendingUp, Shield, Share } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import useDocuments from '../../hooks/useDocuments.jsx';
 import DocumentService from '../../services/documentService';
@@ -8,11 +8,14 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Button from '../common/Button';
 import DocumentList from './DocumentList';
 import DocumentUpload from './DocumentUpload';
+import SharedDocuments from './SharedDocuments';
+import DocumentStats from './DocumentStats';
 import { formatFileSize } from '../../utils/validation';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
   const { documents, loading: documentsLoading, fetchDocuments } = useDocuments();
+  const [activeTab, setActiveTab] = useState('my-documents');
   const [stats, setStats] = useState({
     totalDocuments: 0,
     sharedDocuments: 0,
@@ -45,6 +48,11 @@ const Dashboard = () => {
     fetchDocuments();
     fetchStats();
   };
+
+  const tabs = [
+    { id: 'my-documents', label: 'My Documents', icon: FileText },
+    { id: 'shared-with-me', label: 'Shared With Me', icon: Share }
+  ];
 
   const statCards = [
     {
@@ -94,13 +102,15 @@ const Dashboard = () => {
             <h2 className="text-2xl font-bold text-gray-900">Document Dashboard</h2>
             <p className="text-gray-600 mt-1">Manage your secure government documents</p>
           </div>
-          <Button
-            variant="primary"
-            icon={Upload}
-            onClick={() => setShowUpload(true)}
-          >
-            Upload Document
-          </Button>
+          {activeTab === 'my-documents' && (
+            <Button
+              variant="primary"
+              icon={Upload}
+              onClick={() => setShowUpload(true)}
+            >
+              Upload Document
+            </Button>
+          )}
         </div>
       </div>
 
@@ -135,46 +145,80 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Activity className="w-5 h-5 text-gray-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-        </div>
-        <div className="space-y-3">
-          {documents.slice(0, 5).map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{doc.fileName}</p>
-                  <p className="text-xs text-gray-500 capitalize">{doc.documentType} • {doc.fileType}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">
-                  {doc.uploadedAt.toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          ))}
-          {documents.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>No documents uploaded yet</p>
-            </div>
-          )}
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-md">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
+      {/* Recent Activity */}
+      {activeTab === 'my-documents' && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Activity className="w-5 h-5 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+          </div>
+          <div className="space-y-3">
+            {documents.slice(0, 5).map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{doc.fileName}</p>
+                    <p className="text-xs text-gray-500 capitalize">{doc.documentType} • {doc.fileType}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">
+                    {doc.uploadedAt.toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {documents.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>No documents uploaded yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Documents List */}
-      <DocumentList
-        documents={documents}
-        onDocumentUpdated={fetchDocuments}
-        onDocumentDeleted={fetchDocuments}
-      />
+      {activeTab === 'my-documents' ? (
+        <>
+          <DocumentStats stats={stats} />
+          <DocumentList
+            documents={documents}
+            onDocumentUpdated={fetchDocuments}
+            onDocumentDeleted={fetchDocuments}
+          />
+        </>
+      ) : (
+        <SharedDocuments />
+      )}
 
       {/* Upload Modal */}
       {showUpload && (

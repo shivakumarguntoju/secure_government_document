@@ -19,6 +19,8 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import DocumentViewer from './DocumentViewer';
 import DocumentShare from './DocumentShare';
+import DocumentEdit from './DocumentEdit';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
@@ -29,6 +31,9 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const documentTypes = [
     { value: 'all', label: 'All Documents' },
@@ -52,6 +57,11 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
     setShowShare(true);
   };
 
+  const handleEdit = (document) => {
+    setSelectedDocument(document);
+    setShowEdit(true);
+  };
+
   const handleDownload = (document) => {
     try {
       const link = document.createElement('a');
@@ -68,16 +78,22 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
   };
 
   const handleDelete = async (document) => {
-    if (!window.confirm(`Are you sure you want to delete "${document.fileName}"? This action cannot be undone.`)) {
-      return;
-    }
+    setSelectedDocument(document);
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
+    setDeleting(true);
     try {
-      await deleteDocument(document.id, document.storagePath);
+      await deleteDocument(selectedDocument.id, selectedDocument.storagePath);
       toast.success('Document deleted successfully');
+      setShowDeleteConfirm(false);
+      setSelectedDocument(null);
       onDocumentDeleted();
     } catch (error) {
       toast.error('Failed to delete document');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -218,7 +234,7 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       variant="ghost"
                       size="small"
                       icon={Edit}
-                      onClick={() => {/* Handle edit */}}
+                      onClick={() => handleEdit(document)}
                       className="p-2 text-orange-600 hover:bg-orange-50"
                       title="Edit"
                     />
@@ -258,6 +274,32 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
             setSelectedDocument(null);
           }}
           onShared={onDocumentUpdated}
+        />
+      )}
+
+      {showEdit && selectedDocument && (
+        <DocumentEdit
+          document={selectedDocument}
+          onClose={() => {
+            setShowEdit(false);
+            setSelectedDocument(null);
+          }}
+          onUpdated={onDocumentUpdated}
+        />
+      )}
+
+      {showDeleteConfirm && selectedDocument && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setSelectedDocument(null);
+          }}
+          onConfirm={confirmDelete}
+          title="Delete Document"
+          message={`Are you sure you want to delete "${selectedDocument.fileName}"? This action cannot be undone.`}
+          confirmText="Delete"
+          loading={deleting}
         />
       )}
     </div>

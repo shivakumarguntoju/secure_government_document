@@ -21,7 +21,7 @@ export const formatDate = (date) => {
  * @returns {string} - Formatted date and time string
  */
 export const formatDateTime = (date) => {
-  const dateObj = date instanceof Date ? date : new Date(date);
+  const dateObj = date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date);
   return dateObj.toLocaleString('en-IN', {
     year: 'numeric',
     month: 'short',

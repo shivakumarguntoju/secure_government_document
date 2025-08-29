@@ -1,6 +1,6 @@
 // Header Component
 import React from 'react';
-import { FileText, LogOut, User, Settings, Menu } from 'lucide-react';
+import { FileText, LogOut, User, Settings, Activity, Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { APP_NAME } from '../../constants';
 import Button from '../common/Button';
@@ -19,6 +19,7 @@ const Header = ({ currentView, onViewChange, onMenuToggle }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: FileText },
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'activity', label: 'Activity Log', icon: Activity },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -69,12 +70,14 @@ const Header = ({ currentView, onViewChange, onMenuToggle }) => {
 
           {/* User Info and Logout */}
           <div className="flex items-center space-x-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-gray-900">
-                {userProfile?.firstName} {userProfile?.lastName}
-              </p>
-              <p className="text-xs text-gray-500">{userProfile?.email}</p>
-            </div>
+            {userProfile && (
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-gray-900">
+                  {userProfile.firstName} {userProfile.lastName}
+                </p>
+                <p className="text-xs text-gray-500">{userProfile.email}</p>
+              </div>
+            )}
             
             <Button
               variant="outline"
