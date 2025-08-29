@@ -11,7 +11,6 @@ import Dashboard from './components/dashboard/Dashboard';
 import Profile from './components/profile/Profile';
 import Settings from './components/settings/Settings';
 import ActivityLog from './components/dashboard/ActivityLog';
-import Settings from './components/settings/Settings';
 import LoadingSpinner from './components/common/LoadingSpinner';
 
 const AppContent = () => {
