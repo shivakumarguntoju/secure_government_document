@@ -1,8 +1,8 @@
-// Document Upload Component
+// Document Upload Component with Complete Database Integration
 import React, { useState } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
-import { validateFileType, validateFileSize } from '../../utils/validation';
+import DocumentService from '../../services/documentService';
 import useDocuments from '../../hooks/useDocuments.jsx';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -21,6 +21,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
+  const [uploadComplete, setUploadComplete] = useState(false);
 
   const documentTypes = Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => ({
     value,
@@ -48,19 +49,16 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
   };
 
   const handleFileSelect = (selectedFile) => {
-    // Validate file type
-    if (!validateFileType(selectedFile)) {
-      toast.error('Invalid file type. Please select a PDF, DOC, DOCX, or image file.');
-      return;
-    }
-
-    // Validate file size
-    if (!validateFileSize(selectedFile)) {
-      toast.error('File size too large. Maximum size is 5MB.');
+    // Validate file using DocumentService
+    const validation = DocumentService.validateFile(selectedFile);
+    
+    if (!validation.isValid) {
+      validation.errors.forEach(error => toast.error(error));
       return;
     }
 
     setFile(selectedFile);
+    setErrors({});
     
     // Auto-detect document type based on filename
     const fileName = selectedFile.name.toLowerCase();
@@ -80,10 +78,17 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     
     if (!file) {
       newErrors.file = 'Please select a file to upload';
+    } else {
+      const fileValidation = DocumentService.validateFile(file);
+      if (!fileValidation.isValid) {
+        newErrors.file = fileValidation.errors[0];
+      }
     }
     
     if (!formData.description.trim()) {
       newErrors.description = 'Please provide a description for the document';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters long';
     }
     
     setErrors(newErrors);
@@ -99,12 +104,20 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     setUploadProgress(0);
 
     try {
-      await uploadDocument(file, formData, setUploadProgress);
-      toast.success('Document uploaded successfully!');
-      onUploadComplete();
+      const result = await uploadDocument(file, formData, (progress) => {
+        setUploadProgress(progress);
+      });
+      
+      setUploadComplete(true);
+      toast.success('Document uploaded and saved to database successfully!');
+      
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        onUploadComplete();
+      }, 2000);
+      
     } catch (error) {
       toast.error(error.message || 'Upload failed. Please try again.');
-    } finally {
       setUploading(false);
     }
   };
@@ -125,11 +138,17 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     }
   };
 
+  const removeFile = () => {
+    setFile(null);
+    setErrors({});
+    setUploadProgress(0);
+  };
+
   return (
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Upload Document"
+      title="Upload Document to Database"
       size="large"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -152,13 +171,22 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             onDrop={handleDrop}
           >
             {file ? (
-              <div className="flex items-center justify-center space-x-3">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900">{file.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-center space-x-3">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">{file.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeFile}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             ) : (
@@ -209,6 +237,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
+            disabled={uploading}
           >
             {documentTypes.map(type => (
               <option key={type.value} value={type.value}>{type.label}</option>
@@ -226,27 +255,54 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             value={formData.description}
             onChange={handleChange}
             rows={3}
-            placeholder="Brief description of the document (e.g., 'Aadhaar Card - Primary ID proof')"
+            placeholder="Provide a detailed description (minimum 10 characters)"
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
               errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
             }`}
             required
+            disabled={uploading}
+            minLength={10}
           />
           {errors.description && <ErrorMessage message={errors.description} />}
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.description.length}/200 characters
+          </p>
         </div>
 
         {/* Upload Progress */}
         {uploading && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Uploading...</span>
+              <span className="text-gray-600">
+                {uploadProgress < 100 ? 'Uploading to storage...' : 'Saving to database...'}
+              </span>
               <span className="text-gray-900 font-medium">{uploadProgress}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-3">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${uploadProgress}%` }}
               />
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                {uploadProgress < 50 && 'Uploading file to secure storage...'}
+                {uploadProgress >= 50 && uploadProgress < 90 && 'Processing document...'}
+                {uploadProgress >= 90 && uploadProgress < 100 && 'Saving metadata to database...'}
+                {uploadProgress === 100 && 'Upload complete!'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {uploadComplete && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <p className="text-sm font-medium text-green-800">
+                Document uploaded and saved to database successfully!
+              </p>
             </div>
           </div>
         )}
@@ -260,16 +316,16 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             disabled={uploading}
             className="flex-1"
           >
-            Cancel
+            {uploadComplete ? 'Close' : 'Cancel'}
           </Button>
           <Button
             type="submit"
             variant="primary"
             loading={uploading}
-            disabled={!file || !formData.description.trim()}
+            disabled={!file || !formData.description.trim() || uploadComplete}
             className="flex-1"
           >
-            Upload Document
+            {uploading ? 'Uploading...' : 'Upload to Database'}
           </Button>
         </div>
       </form>

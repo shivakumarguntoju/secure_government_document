@@ -1,4 +1,4 @@
-// Document List Component
+// Document List Component with Database Operations
 import React, { useState } from 'react';
 import { 
   FileText, 
@@ -8,19 +8,23 @@ import {
   Edit,
   Eye,
   Filter,
-  Search
+  Search,
+  Database,
+  Clock
 } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import useDocuments from '../../hooks/useDocuments.jsx';
+import DocumentService from '../../services/documentService';
 import { formatFileSize } from '../../utils/validation';
-import { truncateText } from '../../utils/helpers';
+import { truncateText, formatDateTime } from '../../utils/helpers';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import DocumentViewer from './DocumentViewer';
 import DocumentShare from './DocumentShare';
 import DocumentEdit from './DocumentEdit';
 import ConfirmDialog from '../common/ConfirmDialog';
+import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
@@ -34,6 +38,7 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [downloading, setDownloading] = useState({});
 
   const documentTypes = [
     { value: 'all', label: 'All Documents' },
@@ -47,9 +52,16 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
     return matchesSearch && matchesType;
   });
 
-  const handleView = (document) => {
-    setSelectedDocument(document);
-    setShowViewer(true);
+  const handleView = async (document) => {
+    try {
+      // Get fresh document data from database
+      const freshDoc = await DocumentService.getDocument(document.id, currentUser.uid);
+      setSelectedDocument(freshDoc);
+      setShowViewer(true);
+      toast.success('Document loaded from database');
+    } catch (error) {
+      toast.error(error.message || 'Failed to load document');
+    }
   };
 
   const handleShare = (document) => {
@@ -62,18 +74,16 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
     setShowEdit(true);
   };
 
-  const handleDownload = (document) => {
+  const handleDownload = async (document) => {
+    setDownloading(prev => ({ ...prev, [document.id]: true }));
+    
     try {
-      const link = document.createElement('a');
-      link.href = document.fileUrl;
-      link.download = document.fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Download started');
+      await DocumentService.downloadDocument(document.id, currentUser.uid);
+      toast.success('Download started - tracked in database');
     } catch (error) {
-      toast.error('Download failed');
+      toast.error(error.message || 'Download failed');
+    } finally {
+      setDownloading(prev => ({ ...prev, [document.id]: false }));
     }
   };
 
@@ -86,12 +96,12 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
     setDeleting(true);
     try {
       await deleteDocument(selectedDocument.id, selectedDocument.storagePath);
-      toast.success('Document deleted successfully');
+      toast.success('Document deleted from database successfully');
       setShowDeleteConfirm(false);
       setSelectedDocument(null);
       onDocumentDeleted();
     } catch (error) {
-      toast.error('Failed to delete document');
+      toast.error(error.message || 'Failed to delete document');
     } finally {
       setDeleting(false);
     }
@@ -111,14 +121,27 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
     return <FileText className={`${iconClass} ${iconColors[documentType] || 'text-gray-600'}`} />;
   };
 
+  if (!documents) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="large" text="Loading documents from database..." />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-md">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">My Documents</h3>
-            <p className="text-sm text-gray-600">{filteredDocuments.length} documents found</p>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+              <Database className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Document Database</h3>
+              <p className="text-sm text-gray-600">{filteredDocuments.length} documents stored</p>
+            </div>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -153,12 +176,12 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
       <div className="p-6">
         {filteredDocuments.length === 0 ? (
           <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <Database className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h4 className="text-lg font-medium text-gray-900 mb-2">No documents found</h4>
             <p className="text-gray-600">
               {searchTerm || selectedType !== 'all' 
                 ? 'Try adjusting your search or filter criteria'
-                : 'Upload your first document to get started'
+                : 'Upload your first document to the database to get started'
               }
             </p>
           </div>
@@ -167,10 +190,10 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
             {filteredDocuments.map((document) => (
               <div
                 key={document.id}
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all duration-200 bg-gradient-to-br from-white to-gray-50"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
                     {getDocumentIcon(document.documentType)}
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium text-gray-900 truncate">
@@ -182,20 +205,35 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                     </div>
                   </div>
                   
-                  {document.isShared && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                      Shared
+                  <div className="flex flex-col items-end space-y-1">
+                    {document.isShared && (
+                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        Shared
+                      </span>
+                    )}
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                      <Database className="w-3 h-3 mr-1" />
+                      DB Stored
                     </span>
-                  )}
+                  </div>
                 </div>
 
                 <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                   {truncateText(document.description, 80)}
                 </p>
 
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                  <span>{document.uploadedAt.toLocaleDateString()}</span>
-                  <span>{formatFileSize(document.fileSize)}</span>
+                <div className="space-y-2 text-xs text-gray-500 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {formatDateTime(document.uploadedAt)}
+                    </span>
+                    <span>{formatFileSize(document.fileSize)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Downloads: {document.downloadCount || 0}</span>
+                    <span>ID: {document.id.slice(0, 8)}...</span>
+                  </div>
                 </div>
 
                 {/* Actions */}
@@ -206,8 +244,8 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       size="small"
                       icon={Eye}
                       onClick={() => handleView(document)}
-                      className="p-2"
-                      title="View"
+                      className="p-2 text-blue-600 hover:bg-blue-50"
+                      title="View from Database"
                     />
                     
                     <Button
@@ -215,8 +253,9 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       size="small"
                       icon={Download}
                       onClick={() => handleDownload(document)}
+                      loading={downloading[document.id]}
                       className="p-2 text-green-600 hover:bg-green-50"
-                      title="Download"
+                      title="Download & Track"
                     />
                     
                     <Button
@@ -225,7 +264,7 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       icon={Share}
                       onClick={() => handleShare(document)}
                       className="p-2 text-purple-600 hover:bg-purple-50"
-                      title="Share"
+                      title="Share Document"
                     />
                   </div>
                   
@@ -236,7 +275,7 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       icon={Edit}
                       onClick={() => handleEdit(document)}
                       className="p-2 text-orange-600 hover:bg-orange-50"
-                      title="Edit"
+                      title="Edit Metadata"
                     />
                     
                     <Button
@@ -245,7 +284,7 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
                       icon={Trash2}
                       onClick={() => handleDelete(document)}
                       className="p-2 text-red-600 hover:bg-red-50"
-                      title="Delete"
+                      title="Delete from Database"
                     />
                   </div>
                 </div>
@@ -296,9 +335,9 @@ const DocumentList = ({ documents, onDocumentUpdated, onDocumentDeleted }) => {
             setSelectedDocument(null);
           }}
           onConfirm={confirmDelete}
-          title="Delete Document"
-          message={`Are you sure you want to delete "${selectedDocument.fileName}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title="Delete Document from Database"
+          message={`Are you sure you want to permanently delete "${selectedDocument.fileName}" from the database? This action cannot be undone and will remove both the file and all metadata.`}
+          confirmText="Delete from Database"
           loading={deleting}
         />
       )}
