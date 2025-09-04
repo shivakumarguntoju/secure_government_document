@@ -133,28 +133,76 @@ export const AuthProvider = ({ children }) => {
             const profile = await AuthService.getUserProfile(user.uid);
             setUserProfile(profile);
             
+            // Show warning if profile is offline
+            if (profile.isOffline) {
+              setError('Limited functionality: Database connection unavailable. Some features may not work properly.');
+            }
+            
             // Log successful authentication state change
-            await Logger.logUserAction(
-              user.uid, 
-              'AUTH_STATE_CHANGE', 
-              'User authentication state updated - logged in'
-            );
+            try {
+              await Logger.logUserAction(
+                user.uid, 
+                'AUTH_STATE_CHANGE', 
+                'User authentication state updated - logged in'
+              );
+            } catch (logError) {
+              // Don't fail auth if logging fails
+              console.warn('Failed to log auth state change:', logError);
+            }
             
           } catch (profileError) {
+            // Create basic profile from auth user if database fails
+            const basicProfile = {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || 'User',
+              firstName: user.displayName?.split(' ')[0] || 'User',
+              lastName: user.displayName?.split(' ')[1] || '',
+              isOffline: true
+            };
+            
+            setUserProfile(basicProfile);
+            setError('Database unavailable. Limited functionality enabled.');
+            
             Logger.logError(profileError, 'Failed to fetch user profile during auth state change');
-            setError('Failed to load user profile. Please try refreshing the page.');
           }
         } else {
           // User is logged out - clear profile
           setUserProfile(null);
           
           // Log authentication state change
-          await Logger.logAuthAction('AUTH_STATE_CHANGE', 'User authentication state updated - logged out');
+          try {
+            await Logger.logAuthAction('AUTH_STATE_CHANGE', 'User authentication state updated - logged out');
+          } catch (logError) {
+            // Don't fail auth if logging fails
+            console.warn('Failed to log auth state change:', logError);
+          }
         }
         
       } catch (error) {
+        // Don't completely fail auth on errors
+        console.error('Auth state change handler failed:', error);
+        
+        // If we have a user but failed to get profile, create basic profile
+        if (user) {
+          const basicProfile = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || 'User',
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ')[1] || '',
+            isOffline: true
+          };
+          
+          setCurrentUser(user);
+          setUserProfile(basicProfile);
+          setIsAuthenticated(true);
+          setError('Limited functionality: Database connection issues detected.');
+        } else {
+          setError('Authentication error occurred. Please try logging in again.');
+        }
+        
         Logger.logError(error, 'Auth state change handler failed');
-        setError('Authentication error occurred. Please refresh the page.');
       } finally {
         setLoading(false);
       }

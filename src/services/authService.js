@@ -163,6 +163,11 @@ class AuthService {
    */
   static async getUserProfile(userId) {
     try {
+      // Check if Firestore is available
+      if (!db) {
+        throw new Error('Database not configured');
+      }
+      
       const userDoc = await getDoc(doc(db, 'users', userId));
       
       if (userDoc.exists()) {
@@ -175,12 +180,66 @@ class AuthService {
           lastLogoutAt: data.lastLogoutAt?.toDate ? data.lastLogoutAt.toDate() : null
         };
       } else {
-        throw new Error('User profile not found in database');
+        // If profile doesn't exist, create a basic one from auth user
+        const user = auth.currentUser;
+        if (user) {
+          const basicProfile = {
+            uid: userId,
+            email: user.email,
+            displayName: user.displayName || 'User',
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ')[1] || '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isActive: true
+          };
+          
+          // Try to create the profile
+          try {
+            await setDoc(doc(db, 'users', userId), basicProfile);
+            return basicProfile;
+          } catch (createError) {
+            // If we can't create, return basic profile without saving
+            return basicProfile;
+          }
+        }
+        throw new Error('User profile not found');
       }
       
     } catch (error) {
+      // Handle specific Firestore errors
+      if (error.code === 'unavailable' || error.message.includes('offline')) {
+        // Return a basic profile when offline
+        const user = auth.currentUser;
+        if (user) {
+          return {
+            uid: userId,
+            email: user.email,
+            displayName: user.displayName || 'User',
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ')[1] || '',
+            isOffline: true
+          };
+        }
+      }
+      
       Logger.logError(error, 'Failed to fetch user profile from database');
-      throw new Error('Failed to load user profile. Please try refreshing the page.');
+      
+      // Return basic profile instead of throwing error
+      const user = auth.currentUser;
+      if (user) {
+        return {
+          uid: userId,
+          email: user.email,
+          displayName: user.displayName || 'User',
+          firstName: user.displayName?.split(' ')[0] || 'User',
+          lastName: user.displayName?.split(' ')[1] || '',
+          isOffline: true,
+          error: 'Profile data unavailable'
+        };
+      }
+      
+      throw new Error('Authentication failed. Please try logging in again.');
     }
   }
 
