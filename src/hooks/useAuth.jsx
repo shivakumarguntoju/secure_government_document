@@ -1,4 +1,4 @@
-// Authentication Hook
+// Authentication Hook - Complete Login/Logout Management
 import { useState, useEffect, createContext, useContext } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -14,16 +14,25 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Login function
+  // Login function with complete error handling
   const login = async (email, password) => {
     try {
       setError(null);
+      setLoading(true);
+      
       const result = await AuthService.login(email, password);
+      
+      // Authentication successful - user state will be updated by onAuthStateChanged
       return result;
+      
     } catch (error) {
       setError(error.message);
+      Logger.logError(error, 'Login attempt failed');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,24 +40,43 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData, password) => {
     try {
       setError(null);
+      setLoading(true);
+      
       const result = await AuthService.register(userData, password);
+      
+      // Registration successful - user state will be updated by onAuthStateChanged
       return result;
+      
     } catch (error) {
       setError(error.message);
+      Logger.logError(error, 'Registration attempt failed');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Logout function
+  // Logout function with complete cleanup
   const logout = async () => {
     try {
       setError(null);
+      
       const result = await AuthService.logout();
+      
+      // Clear local state immediately
       setCurrentUser(null);
       setUserProfile(null);
+      setIsAuthenticated(false);
+      
+      // Clear any cached data
+      localStorage.removeItem('userPreferences');
+      sessionStorage.clear();
+      
       return result;
+      
     } catch (error) {
       setError(error.message);
+      Logger.logError(error, 'Logout attempt failed');
       throw error;
     }
   };
@@ -57,54 +85,126 @@ export const AuthProvider = ({ children }) => {
   const updateUserProfile = async (updates) => {
     try {
       setError(null);
-      if (!currentUser) throw new Error('No user logged in');
+      
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
       
       const result = await AuthService.updateUserProfile(currentUser.uid, updates);
       
       // Update local profile state
-      setUserProfile(prev => ({ ...prev, ...updates }));
+      setUserProfile(prev => ({ 
+        ...prev, 
+        ...updates,
+        updatedAt: new Date()
+      }));
       
       return result;
+      
     } catch (error) {
       setError(error.message);
+      Logger.logError(error, 'Profile update failed');
       throw error;
+    }
+  };
+
+  // Check authentication status
+  const checkAuthStatus = async () => {
+    try {
+      const isAuth = await AuthService.isAuthenticated();
+      setIsAuthenticated(isAuth);
+      return isAuth;
+    } catch (error) {
+      setIsAuthenticated(false);
+      return false;
     }
   };
 
   // Listen for authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
-      if (user) {
-        try {
-          // Fetch user profile
-          const profile = await AuthService.getUserProfile(user.uid);
-          setUserProfile(profile);
-        } catch (error) {
-          Logger.logError(error, 'Failed to fetch user profile');
-          setError('Failed to load user profile');
+      try {
+        setCurrentUser(user);
+        setIsAuthenticated(!!user);
+        
+        if (user) {
+          // User is logged in - fetch their profile from database
+          try {
+            const profile = await AuthService.getUserProfile(user.uid);
+            setUserProfile(profile);
+            
+            // Log successful authentication state change
+            await Logger.logUserAction(
+              user.uid, 
+              'AUTH_STATE_CHANGE', 
+              'User authentication state updated - logged in'
+            );
+            
+          } catch (profileError) {
+            Logger.logError(profileError, 'Failed to fetch user profile during auth state change');
+            setError('Failed to load user profile. Please try refreshing the page.');
+          }
+        } else {
+          // User is logged out - clear profile
+          setUserProfile(null);
+          
+          // Log authentication state change
+          await Logger.logAuthAction('AUTH_STATE_CHANGE', 'User authentication state updated - logged out');
         }
-      } else {
-        setUserProfile(null);
+        
+      } catch (error) {
+        Logger.logError(error, 'Auth state change handler failed');
+        setError('Authentication error occurred. Please refresh the page.');
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return unsubscribe;
+    // Cleanup subscription on unmount
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
+  // Auto-logout on tab close/refresh (optional security feature)
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (currentUser) {
+        try {
+          await Logger.logUserAction(
+            currentUser.uid, 
+            'SESSION_END', 
+            'User session ended (tab closed/refreshed)'
+          );
+        } catch (error) {
+          console.warn('Failed to log session end:', error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentUser]);
+
+  // Provide authentication context
   const value = {
+    // State
     currentUser,
     userProfile,
     loading,
     error,
+    isAuthenticated,
+    
+    // Actions
     login,
     register,
     logout,
     updateUserProfile,
-    setError
+    checkAuthStatus,
+    
+    // Utilities
+    setError,
+    clearError: () => setError(null)
   };
 
   return (

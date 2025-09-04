@@ -1,12 +1,13 @@
-// Login Form Component
+// Login Form Component - Complete Implementation
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmail } from '../../utils/validation';
 import { APP_NAME } from '../../constants';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import ErrorMessage from '../common/ErrorMessage';
+import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const LoginForm = ({ onSwitchToRegister }) => {
@@ -17,20 +18,23 @@ const LoginForm = ({ onSwitchToRegister }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [rememberMe, setRememberMe] = useState(false);
   
-  const { login, error, setError } = useAuth();
+  const { login, error, setError, clearError } = useAuth();
 
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email address is required';
     } else if (!validateEmail(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
     setErrors(newErrors);
@@ -40,16 +44,28 @@ const LoginForm = ({ onSwitchToRegister }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      toast.error('Please fix the form errors before submitting');
+      return;
+    }
     
     setLoading(true);
-    setError(null);
+    clearError();
 
     try {
-      await login(formData.email, formData.password);
-      toast.success('Login successful!');
+      const result = await login(formData.email.trim(), formData.password);
+      
+      // Save login preference
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', formData.email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+      
+      toast.success(result.message || 'Login successful!');
+      
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,39 +78,55 @@ const LoginForm = ({ onSwitchToRegister }) => {
       [name]: value
     }));
     
-    // Clear error when user starts typing
+    // Clear field error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }));
     }
+    
+    // Clear global error when user makes changes
+    if (error) {
+      clearError();
+    }
   };
 
+  // Load remembered email on component mount
+  React.useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      setFormData(prev => ({ ...prev, email: rememberedEmail }));
+      setRememberMe(true);
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <LogIn className="w-8 h-8 text-white" />
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Shield className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
-            <p className="text-gray-600">Sign in to access your secure documents</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{APP_NAME}</h1>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome Back</h2>
+            <p className="text-gray-600">Sign in to access your secure document vault</p>
           </div>
 
-          {/* Error Message */}
+          {/* Global Error Message */}
           {error && (
             <div className="mb-6">
               <ErrorMessage 
                 message={error} 
-                onClose={() => setError(null)} 
+                onClose={clearError}
+                type="error"
               />
             </div>
           )}
 
-          {/* Form */}
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               label="Email Address"
@@ -103,12 +135,14 @@ const LoginForm = ({ onSwitchToRegister }) => {
               value={formData.email}
               onChange={handleChange}
               icon={Mail}
-              placeholder="Enter your email"
+              placeholder="Enter your email address"
               error={errors.email}
               required
+              autoComplete="email"
+              disabled={loading}
             />
 
-            <div>
+            <div className="relative">
               <Input
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
@@ -119,45 +153,91 @@ const LoginForm = ({ onSwitchToRegister }) => {
                 placeholder="Enter your password"
                 error={errors.password}
                 required
+                autoComplete="current-password"
+                disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                disabled={loading}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
+            {/* Remember Me */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={loading}
+                />
+                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+              </label>
+              
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
+                disabled={loading}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            {/* Submit Button */}
             <Button
               type="submit"
               variant="primary"
               size="large"
               loading={loading}
-              className="w-full"
+              disabled={loading}
+              icon={!loading ? LogIn : undefined}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In Securely'}
             </Button>
           </form>
 
+          {/* Divider */}
+          <div className="my-8">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">New to {APP_NAME}?</span>
+              </div>
+            </div>
+          </div>
+
           {/* Switch to Register */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <button
-                onClick={onSwitchToRegister}
-                className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
-              >
-                Create Account
-              </button>
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              Don't have an account yet?
             </p>
+            <Button
+              variant="outline"
+              onClick={onSwitchToRegister}
+              disabled={loading}
+              className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+            >
+              Create New Account
+            </Button>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500">
-            Secured by Government of India Digital Infrastructure
+        <div className="mt-8 text-center">
+          <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+            <Shield className="w-4 h-4" />
+            <span>Secured by Government of India Digital Infrastructure</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Your documents are protected with enterprise-grade security
           </p>
         </div>
       </div>
