@@ -5,6 +5,10 @@ import { auth } from '../config/firebase';
 import AuthService from '../services/authService';
 import Logger from '../utils/logger';
 
+// Cache for user profiles to avoid repeated database calls
+const profileCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Create Auth Context
 const AuthContext = createContext();
 
@@ -128,9 +132,26 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(!!user);
         
         if (user) {
+          // Check cache first to avoid unnecessary database calls
+          const cacheKey = user.uid;
+          const cached = profileCache.get(cacheKey);
+          
+          if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+            setUserProfile(cached.profile);
+            setLoading(false);
+            return;
+          }
+          
           // User is logged in - fetch their profile from database
           try {
             const profile = await AuthService.getUserProfile(user.uid);
+            
+            // Cache the profile
+            profileCache.set(cacheKey, {
+              profile,
+              timestamp: Date.now()
+            });
+            
             setUserProfile(profile);
             
             // Show warning if profile is offline
@@ -162,6 +183,12 @@ export const AuthProvider = ({ children }) => {
             };
             
             setUserProfile(basicProfile);
+            
+            // Cache basic profile too
+            profileCache.set(cacheKey, {
+              profile: basicProfile,
+              timestamp: Date.now()
+            });
             setError('Database unavailable. Limited functionality enabled.');
             
             Logger.logError(profileError, 'Failed to fetch user profile during auth state change');
@@ -169,6 +196,9 @@ export const AuthProvider = ({ children }) => {
         } else {
           // User is logged out - clear profile
           setUserProfile(null);
+          
+          // Clear cache on logout
+          profileCache.clear();
           
           // Log authentication state change
           try {

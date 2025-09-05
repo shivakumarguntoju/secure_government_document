@@ -11,10 +11,15 @@ import {
   getDoc,
   updateDoc,
   deleteDoc
+  limit
 } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import Logger from '../utils/logger';
+
+// Cache for documents to avoid repeated database calls
+const documentsCache = new Map();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for documents
 
 export const useDocuments = (filters = {}) => {
   const { currentUser } = useAuth();
@@ -32,6 +37,17 @@ export const useDocuments = (filters = {}) => {
   const fetchDocuments = async () => {
     if (!currentUser) return;
 
+    // Check cache first
+    const cacheKey = `${currentUser.uid}_${JSON.stringify(filters)}`;
+    const cached = documentsCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      setDocuments(cached.documents);
+      setStats(cached.stats);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -40,7 +56,8 @@ export const useDocuments = (filters = {}) => {
         collection(db, 'documents'),
         where('userId', '==', currentUser.uid),
         where('status', '==', 'active'),
-        orderBy('uploadedAt', 'desc')
+        orderBy('uploadedAt', 'desc'),
+        limit(50) // Limit initial load for better performance
       );
       
       // Apply document type filter
@@ -50,7 +67,8 @@ export const useDocuments = (filters = {}) => {
           where('userId', '==', currentUser.uid),
           where('status', '==', 'active'),
           where('documentType', '==', filters.documentType),
-          orderBy('uploadedAt', 'desc')
+          orderBy('uploadedAt', 'desc'),
+          limit(50)
         );
       }
       
@@ -81,6 +99,13 @@ export const useDocuments = (filters = {}) => {
       };
       
       setStats(statistics);
+      
+      // Cache the results
+      documentsCache.set(cacheKey, {
+        documents: docs,
+        stats: statistics,
+        timestamp: Date.now()
+      });
       
       await Logger.logUserAction(
         currentUser.uid,
@@ -211,6 +236,9 @@ export const useDocuments = (filters = {}) => {
         )
       );
       
+      // Clear cache to force refresh
+      documentsCache.clear();
+      
       await Logger.logUserAction(
         currentUser.uid,
         'UPDATE_DOCUMENT',
@@ -254,6 +282,9 @@ export const useDocuments = (filters = {}) => {
       
       // Remove from local state
       setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      
+      // Clear cache to force refresh
+      documentsCache.clear();
       
       await Logger.logUserAction(
         currentUser.uid,

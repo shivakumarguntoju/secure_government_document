@@ -3,16 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import { APP_NAME } from './constants';
-import LoginForm from './components/auth/LoginForm';
-import RegisterForm from './components/auth/RegisterForm';
-import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
-import Dashboard from './components/dashboard/Dashboard';
-import Profile from './components/profile/Profile';
-import Settings from './components/settings/Settings';
-import ActivityLog from './components/dashboard/ActivityLog';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import { Shield, Database, Lock } from 'lucide-react';
+
+// Lazy load components to improve initial loading time
+const LoginForm = React.lazy(() => import('./components/auth/LoginForm'));
+const RegisterForm = React.lazy(() => import('./components/auth/RegisterForm'));
+const Header = React.lazy(() => import('./components/layout/Header'));
+const Sidebar = React.lazy(() => import('./components/layout/Sidebar'));
+const Dashboard = React.lazy(() => import('./components/dashboard/Dashboard'));
+const Profile = React.lazy(() => import('./components/profile/Profile'));
+const Settings = React.lazy(() => import('./components/settings/Settings'));
+const ActivityLog = React.lazy(() => import('./components/dashboard/ActivityLog'));
 
 const AppContent = () => {
   const { currentUser, userProfile, loading, isAuthenticated } = useAuth();
@@ -59,51 +61,75 @@ const AppContent = () => {
 
   // Show authentication forms if user is not logged in
   if (!currentUser || !isAuthenticated) {
-    return authMode === 'login' ? (
-      <LoginForm onSwitchToRegister={() => setAuthMode('register')} />
-    ) : (
-      <RegisterForm onSwitchToLogin={() => setAuthMode('login')} />
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+          <LoadingSpinner size="large" text="Loading authentication..." />
+        </div>
+      }>
+        {authMode === 'login' ? (
+          <LoginForm onSwitchToRegister={() => setAuthMode('register')} />
+        ) : (
+          <RegisterForm onSwitchToLogin={() => setAuthMode('login')} />
+        )}
+      </React.Suspense>
     );
   }
 
   // Render main application content
   const renderContent = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'profile':
-        return <Profile />;
-      case 'activity':
-        return <ActivityLog />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
+    return (
+      <React.Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <LoadingSpinner size="large" text="Loading content..." />
+        </div>
+      }>
+        {(() => {
+          switch (currentView) {
+            case 'dashboard':
+              return <Dashboard />;
+            case 'profile':
+              return <Profile />;
+            case 'activity':
+              return <ActivityLog />;
+            case 'settings':
+              return <Settings />;
+            default:
+              return <Dashboard />;
+          }
+        })()}
+      </React.Suspense>
+    );
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        currentView={currentView}
-        onViewChange={handleViewChange}
-      />
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header
+      <React.Suspense fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <LoadingSpinner size="large" text="Loading interface..." />
+        </div>
+      }>
+        {/* Sidebar */}
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           currentView={currentView}
           onViewChange={handleViewChange}
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
         />
         
-        <main className="flex-1 max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 w-full">
-          {renderContent()}
-        </main>
-      </div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header
+            currentView={currentView}
+            onViewChange={handleViewChange}
+            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+          
+          <main className="flex-1 max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 w-full">
+            {renderContent()}
+          </main>
+        </div>
+      </React.Suspense>
     </div>
   );
 };

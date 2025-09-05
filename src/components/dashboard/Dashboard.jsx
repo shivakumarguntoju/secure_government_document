@@ -19,11 +19,13 @@ import { db } from '../../config/firebase';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import DocumentList from './DocumentList';
-import DocumentUpload from './DocumentUpload';
-import SharedDocuments from './SharedDocuments';
-import DocumentStats from './DocumentStats';
 import { formatFileSize } from '../../utils/validation';
+
+// Lazy load heavy components
+const DocumentList = React.lazy(() => import('./DocumentList'));
+const DocumentUpload = React.lazy(() => import('./DocumentUpload'));
+const SharedDocuments = React.lazy(() => import('./SharedDocuments'));
+const DocumentStats = React.lazy(() => import('./DocumentStats'));
 
 const Dashboard = () => {
   const { currentUser, userProfile } = useAuth();
@@ -41,11 +43,38 @@ const Dashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
 
+  // Debounce search to avoid too many database calls
+  const [searchTimeout, setSearchTimeout] = useState(null);
+
   useEffect(() => {
     if (currentUser) {
       fetchRecentActivity();
     }
   }, [currentUser]);
+
+  // Debounced search function
+  const debouncedSearch = (term) => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    const timeout = setTimeout(async () => {
+      if (term.trim()) {
+        setSearching(true);
+        try {
+          await searchDocuments(term);
+        } catch (error) {
+          console.error('Search failed:', error);
+        } finally {
+          setSearching(false);
+        }
+      } else {
+        fetchDocuments();
+      }
+    }, 500); // 500ms delay
+    
+    setSearchTimeout(timeout);
+  };
 
   const fetchRecentActivity = async () => {
     try {
@@ -57,7 +86,7 @@ const Dashboard = () => {
         where('userId', '==', currentUser.uid),
         where('action', 'in', ['UPLOAD_DOCUMENT', 'DOWNLOAD_DOCUMENT', 'VIEW_DOCUMENT', 'DELETE_DOCUMENT']),
         orderBy('timestamp', 'desc'),
-        limit(5)
+        limit(3) // Reduce to 3 for faster loading
       );
       
       const querySnapshot = await getDocs(q);
@@ -82,25 +111,16 @@ const Dashboard = () => {
     fetchRecentActivity();
   };
 
-  const handleSearch = async (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchTerm.trim()) {
-      fetchDocuments();
-      return;
-    }
-
-    setSearching(true);
-    try {
-      await searchDocuments(searchTerm);
-    } catch (error) {
-      console.error('Search failed:', error);
-    } finally {
-      setSearching(false);
-    }
+    debouncedSearch(searchTerm);
   };
 
   const clearSearch = () => {
     setSearchTerm('');
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
     fetchDocuments();
   };
 
@@ -309,26 +329,34 @@ const Dashboard = () => {
       )}
 
       {/* Documents Content */}
-      {activeTab === 'my-documents' ? (
-        <>
-          <DocumentStats stats={stats} />
-          <DocumentList
-            documents={documents}
-            onDocumentUpdated={fetchDocuments}
-            onDocumentDeleted={fetchDocuments}
-          />
-        </>
-      ) : (
-        <SharedDocuments />
-      )}
+      <React.Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <LoadingSpinner size="large" text="Loading documents..." />
+        </div>
+      }>
+        {activeTab === 'my-documents' ? (
+          <>
+            <DocumentStats stats={stats} />
+            <DocumentList
+              documents={documents}
+              onDocumentUpdated={fetchDocuments}
+              onDocumentDeleted={fetchDocuments}
+            />
+          </>
+        ) : (
+          <SharedDocuments />
+        )}
+      </React.Suspense>
 
       {/* Upload Modal */}
-      {showUpload && (
-        <DocumentUpload
-          onClose={() => setShowUpload(false)}
-          onUploadComplete={handleDocumentUploaded}
-        />
-      )}
+      <React.Suspense fallback={null}>
+        {showUpload && (
+          <DocumentUpload
+            onClose={() => setShowUpload(false)}
+            onUploadComplete={handleDocumentUploaded}
+          />
+        )}
+      </React.Suspense>
     </div>
   );
 };
