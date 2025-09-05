@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import useDocuments from '../../hooks/useDocuments.jsx';
-import DocumentService from '../../services/documentService';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Button from '../common/Button';
 import Input from '../common/Input';
@@ -49,10 +50,27 @@ const Dashboard = () => {
   const fetchRecentActivity = async () => {
     try {
       setActivityLoading(true);
-      const activities = await DocumentService.getRecentActivity(currentUser.uid, 5);
+      
+      // Fetch recent activity from database
+      const q = query(
+        collection(db, 'activityLogs'),
+        where('userId', '==', currentUser.uid),
+        where('action', 'in', ['UPLOAD_DOCUMENT', 'DOWNLOAD_DOCUMENT', 'VIEW_DOCUMENT', 'DELETE_DOCUMENT']),
+        orderBy('timestamp', 'desc'),
+        limit(5)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const activities = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date(doc.data().timestamp)
+      }));
+      
       setRecentActivity(activities);
     } catch (error) {
       console.error('Failed to fetch recent activity:', error);
+      setRecentActivity([]);
     } finally {
       setActivityLoading(false);
     }

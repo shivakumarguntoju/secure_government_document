@@ -1,9 +1,18 @@
 // Document Upload Component with Complete Database Integration
 import React, { useState } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle, X, Database } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
-import DocumentService from '../../services/documentService';
-import useDocuments from '../../hooks/useDocuments.jsx';
+import { useAuth } from '../../hooks/useAuth.jsx';
+import { 
+  ref, 
+  uploadBytesResumable, 
+  getDownloadURL 
+} from 'firebase/storage';
+import { 
+  collection, 
+  addDoc 
+} from 'firebase/firestore';
+import { storage, db } from '../../config/firebase';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Input from '../common/Input';
@@ -11,7 +20,7 @@ import ErrorMessage from '../common/ErrorMessage';
 import toast from 'react-hot-toast';
 
 const DocumentUpload = ({ onClose, onUploadComplete }) => {
-  const { uploadDocument } = useDocuments();
+  const { currentUser } = useAuth();
   const [file, setFile] = useState(null);
   const [formData, setFormData] = useState({
     documentType: DOCUMENT_TYPES.OTHER,
@@ -27,6 +36,40 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     value,
     label
   }));
+
+  // File validation
+  const validateFile = (file) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = [
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (!file) return { isValid: false, errors: ['No file selected'] };
+    
+    const errors = [];
+    
+    if (!allowedTypes.includes(file.type)) {
+      errors.push('Invalid file type. Please select PDF, DOC, DOCX, or image files.');
+    }
+    
+    if (file.size > maxSize) {
+      errors.push('File size too large. Maximum size is 5MB.');
+    }
+    
+    if (file.size === 0) {
+      errors.push('File appears to be empty.');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -49,8 +92,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
   };
 
   const handleFileSelect = (selectedFile) => {
-    // Validate file using DocumentService
-    const validation = DocumentService.validateFile(selectedFile);
+    const validation = validateFile(selectedFile);
     
     if (!validation.isValid) {
       validation.errors.forEach(error => toast.error(error));
@@ -79,7 +121,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     if (!file) {
       newErrors.file = 'Please select a file to upload';
     } else {
-      const fileValidation = DocumentService.validateFile(file);
+      const fileValidation = validateFile(file);
       if (!fileValidation.isValid) {
         newErrors.file = fileValidation.errors[0];
       }
@@ -95,21 +137,90 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const uploadToDatabase = async () => {
     if (!validateForm()) return;
 
     setUploading(true);
     setUploadProgress(0);
 
     try {
-      const result = await uploadDocument(file, formData, (progress) => {
-        setUploadProgress(progress);
+      // Generate unique filename
+      const timestamp = Date.now();
+      const extension = file.name.split('.').pop();
+      const fileName = `${formData.documentType}_${timestamp}.${extension}`;
+      
+      // Create storage reference
+      const storageRef = ref(storage, `documents/${currentUser.uid}/${fileName}`);
+      
+      // Upload file with progress tracking
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      
+      return new Promise((resolve, reject) => {
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(Math.round(progress));
+          },
+          (error) => {
+            console.error('Upload error:', error);
+            reject(new Error('Upload failed. Please check your connection and try again.'));
+          },
+          async () => {
+            try {
+              // Get download URL
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              // Save document metadata to Firestore
+              const documentData = {
+                userId: currentUser.uid,
+                fileName: file.name,
+                originalFileName: file.name,
+                storagePath: `documents/${currentUser.uid}/${fileName}`,
+                storageFileName: fileName,
+                fileType: file.type,
+                fileUrl: downloadURL,
+                documentType: formData.documentType,
+                description: formData.description.trim(),
+                uploadedAt: new Date(),
+                updatedAt: new Date(),
+                isShared: false,
+                sharedWith: [],
+                fileSize: file.size,
+                status: 'active',
+                downloadCount: 0,
+                lastAccessed: new Date()
+              };
+              
+              const docRef = await addDoc(collection(db, 'documents'), documentData);
+              
+              setUploadComplete(true);
+              toast.success('Document uploaded and saved to database successfully!');
+              
+              resolve({
+                success: true,
+                documentId: docRef.id,
+                document: { id: docRef.id, ...documentData }
+              });
+              
+            } catch (error) {
+              console.error('Database save error:', error);
+              reject(new Error('Failed to save document information to database. Please try again.'));
+            }
+          }
+        );
       });
       
-      setUploadComplete(true);
-      toast.success('Document uploaded and saved to database successfully!');
+    } catch (error) {
+      console.error('Upload initialization failed:', error);
+      throw new Error('Upload failed. Please try again.');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      await uploadToDatabase();
       
       // Auto-close after 2 seconds
       setTimeout(() => {
@@ -152,6 +263,21 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       size="large"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Database Info Banner */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+              <Database className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-medium text-blue-900">Secure Database Upload</h3>
+              <p className="text-sm text-blue-700">
+                Files will be stored in Firebase Cloud Storage with metadata in Firestore
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* File Upload Area */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -273,8 +399,9 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
         {uploading && (
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">
-                {uploadProgress < 100 ? 'Uploading to storage...' : 'Saving to database...'}
+              <span className="text-gray-600 flex items-center">
+                <Database className="w-4 h-4 mr-2" />
+                {uploadProgress < 100 ? 'Uploading to database...' : 'Saving metadata...'}
               </span>
               <span className="text-gray-900 font-medium">{uploadProgress}%</span>
             </div>
@@ -286,9 +413,9 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             </div>
             <div className="text-center">
               <p className="text-xs text-gray-500">
-                {uploadProgress < 50 && 'Uploading file to secure storage...'}
+                {uploadProgress < 50 && 'Uploading file to Firebase Storage...'}
                 {uploadProgress >= 50 && uploadProgress < 90 && 'Processing document...'}
-                {uploadProgress >= 90 && uploadProgress < 100 && 'Saving metadata to database...'}
+                {uploadProgress >= 90 && uploadProgress < 100 && 'Saving metadata to Firestore...'}
                 {uploadProgress === 100 && 'Upload complete!'}
               </p>
             </div>
@@ -300,9 +427,14 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-600" />
-              <p className="text-sm font-medium text-green-800">
-                Document uploaded and saved to database successfully!
-              </p>
+              <div>
+                <p className="text-sm font-medium text-green-800">
+                  Document uploaded and saved to database successfully!
+                </p>
+                <p className="text-xs text-green-700 mt-1">
+                  File stored in Firebase Storage, metadata saved in Firestore
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -324,6 +456,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             loading={uploading}
             disabled={!file || !formData.description.trim() || uploadComplete}
             className="flex-1"
+            icon={Database}
           >
             {uploading ? 'Uploading...' : 'Upload to Database'}
           </Button>

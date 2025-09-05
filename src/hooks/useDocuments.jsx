@@ -1,7 +1,19 @@
 // Documents Hook with Complete Database Integration
 import { useState, useEffect } from 'react';
-import DocumentService from '../services/documentService';
 import { useAuth } from './useAuth.jsx';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc
+} from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
 import Logger from '../utils/logger';
 
 export const useDocuments = (filters = {}) => {
@@ -24,12 +36,57 @@ export const useDocuments = (filters = {}) => {
       setLoading(true);
       setError(null);
       
-      const docs = await DocumentService.getUserDocuments(currentUser.uid, filters);
+      let q = query(
+        collection(db, 'documents'),
+        where('userId', '==', currentUser.uid),
+        where('status', '==', 'active'),
+        orderBy('uploadedAt', 'desc')
+      );
+      
+      // Apply document type filter
+      if (filters.documentType && filters.documentType !== 'all') {
+        q = query(
+          collection(db, 'documents'),
+          where('userId', '==', currentUser.uid),
+          where('status', '==', 'active'),
+          where('documentType', '==', filters.documentType),
+          orderBy('uploadedAt', 'desc')
+        );
+      }
+      
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+          lastAccessed: data.lastAccessed?.toDate ? data.lastAccessed.toDate() : new Date(data.lastAccessed)
+        };
+      });
+      
       setDocuments(docs);
       
-      // Also fetch stats
-      const statistics = await DocumentService.getDocumentStats(currentUser.uid);
+      // Calculate stats
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const statistics = {
+        totalDocuments: docs.length,
+        sharedDocuments: docs.filter(doc => doc.isShared).length,
+        recentUploads: docs.filter(doc => doc.uploadedAt > thirtyDaysAgo).length,
+        storageUsed: docs.reduce((total, doc) => total + (doc.fileSize || 0), 0),
+        totalDownloads: docs.reduce((total, doc) => total + (doc.downloadCount || 0), 0)
+      };
+      
       setStats(statistics);
+      
+      await Logger.logUserAction(
+        currentUser.uid,
+        'FETCH_DOCUMENTS',
+        `Fetched ${docs.length} documents from database`
+      );
       
     } catch (error) {
       setError(error.message);
@@ -39,34 +96,43 @@ export const useDocuments = (filters = {}) => {
     }
   };
 
-  // Upload document to database
-  const uploadDocument = async (file, metadata, onProgress) => {
-    try {
-      setError(null);
-      
-      const result = await DocumentService.uploadDocument(
-        currentUser.uid,
-        file,
-        metadata,
-        onProgress
-      );
-      
-      // Refresh documents list from database
-      await fetchDocuments();
-      
-      return result;
-    } catch (error) {
-      setError(error.message);
-      throw error;
-    }
-  };
-
   // Get single document from database
   const getDocument = async (documentId) => {
     try {
       setError(null);
-      const document = await DocumentService.getDocument(documentId, currentUser.uid);
-      return document;
+      const docRef = doc(db, 'documents', documentId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        throw new Error('Document not found in database');
+      }
+      
+      const data = docSnap.data();
+      
+      // Security check - ensure user owns the document
+      if (data.userId !== currentUser.uid) {
+        throw new Error('Access denied. You do not have permission to view this document.');
+      }
+      
+      // Update last accessed time
+      await updateDoc(docRef, {
+        lastAccessed: new Date()
+      });
+      
+      await Logger.logUserAction(
+        currentUser.uid,
+        'VIEW_DOCUMENT',
+        `Viewed document: ${data.fileName} from database`
+      );
+      
+      return {
+        id: docSnap.id,
+        ...data,
+        uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+        lastAccessed: new Date()
+      };
+      
     } catch (error) {
       setError(error.message);
       throw error;
@@ -77,15 +143,47 @@ export const useDocuments = (filters = {}) => {
   const downloadDocument = async (documentId) => {
     try {
       setError(null);
-      const result = await DocumentService.downloadDocument(documentId, currentUser.uid);
+      
+      // Get document data from database
+      const document = await getDocument(documentId);
+      
+      // Update download count in database
+      await updateDoc(doc(db, 'documents', documentId), {
+        downloadCount: (document.downloadCount || 0) + 1,
+        lastAccessed: new Date()
+      });
+      
+      // Log download action
+      await Logger.logUserAction(
+        currentUser.uid,
+        'DOWNLOAD_DOCUMENT',
+        `Downloaded document: ${document.fileName} from database`
+      );
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = document.fileUrl;
+      link.download = document.originalFileName || document.fileName;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       // Refresh documents to get updated download count
       await fetchDocuments();
       
-      return result;
+      return {
+        success: true,
+        message: 'Download started successfully!',
+        document: document
+      };
+      
     } catch (error) {
       setError(error.message);
-      throw error;
+      throw new Error('Download failed. Please try again.');
     }
   };
 
@@ -93,11 +191,16 @@ export const useDocuments = (filters = {}) => {
   const updateDocument = async (documentId, updates) => {
     try {
       setError(null);
-      const result = await DocumentService.updateDocument(
-        currentUser.uid,
-        documentId,
-        updates
-      );
+      
+      // Security check - get document first
+      const document = await getDocument(documentId);
+      
+      const updateData = {
+        ...updates,
+        updatedAt: new Date()
+      };
+      
+      await updateDoc(doc(db, 'documents', documentId), updateData);
       
       // Update local state
       setDocuments(prev => 
@@ -108,10 +211,20 @@ export const useDocuments = (filters = {}) => {
         )
       );
       
-      return result;
+      await Logger.logUserAction(
+        currentUser.uid,
+        'UPDATE_DOCUMENT',
+        `Updated document: ${Object.keys(updates).join(', ')} in database`
+      );
+      
+      return {
+        success: true,
+        message: 'Document updated successfully in database!'
+      };
+      
     } catch (error) {
       setError(error.message);
-      throw error;
+      throw new Error('Failed to update document in database. Please try again.');
     }
   };
 
@@ -119,49 +232,43 @@ export const useDocuments = (filters = {}) => {
   const deleteDocument = async (documentId, storagePath) => {
     try {
       setError(null);
-      const result = await DocumentService.deleteDocument(
-        currentUser.uid,
-        documentId,
-        storagePath
-      );
+      
+      // Security check - get document first
+      const document = await getDocument(documentId);
+      
+      // Soft delete in Firestore (mark as deleted)
+      await updateDoc(doc(db, 'documents', documentId), {
+        status: 'deleted',
+        deletedAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Delete from Storage
+      try {
+        const storageRef = ref(storage, storagePath);
+        await deleteObject(storageRef);
+      } catch (storageError) {
+        // Log but don't fail if storage deletion fails
+        Logger.logError(storageError, 'Failed to delete file from storage');
+      }
       
       // Remove from local state
       setDocuments(prev => prev.filter(doc => doc.id !== documentId));
       
-      // Refresh stats
-      const statistics = await DocumentService.getDocumentStats(currentUser.uid);
-      setStats(statistics);
-      
-      return result;
-    } catch (error) {
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  // Share document via database
-  const shareDocument = async (documentId, shareData) => {
-    try {
-      setError(null);
-      const result = await DocumentService.shareDocument(
+      await Logger.logUserAction(
         currentUser.uid,
-        documentId,
-        shareData
+        'DELETE_DOCUMENT',
+        `Deleted document: ${document.fileName} from database`
       );
       
-      // Update local state
-      setDocuments(prev =>
-        prev.map(doc =>
-          doc.id === documentId
-            ? { ...doc, isShared: true, updatedAt: new Date() }
-            : doc
-        )
-      );
+      return {
+        success: true,
+        message: 'Document deleted successfully from database!'
+      };
       
-      return result;
     } catch (error) {
       setError(error.message);
-      throw error;
+      throw new Error('Failed to delete document from database. Please try again.');
     }
   };
 
@@ -171,36 +278,28 @@ export const useDocuments = (filters = {}) => {
       setError(null);
       setLoading(true);
       
-      const results = await DocumentService.searchDocuments(currentUser.uid, searchTerm);
-      setDocuments(results);
+      // Get all documents first (Firestore doesn't support full-text search)
+      const allDocs = await fetchDocuments();
       
-      return results;
-    } catch (error) {
-      setError(error.message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get shared documents from database
-  const getSharedDocuments = async () => {
-    try {
-      setError(null);
-      setLoading(true);
-      
-      const { userProfile } = useAuth();
-      if (!userProfile) throw new Error('User profile not loaded');
-      
-      const sharedDocs = await DocumentService.getSharedDocuments(
-        userProfile.email,
-        userProfile.aadhaarNumber
+      const filteredDocs = documents.filter(doc => 
+        doc.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.documentType.toLowerCase().includes(searchTerm.toLowerCase())
       );
       
-      return sharedDocs;
+      setDocuments(filteredDocs);
+      
+      await Logger.logUserAction(
+        currentUser.uid,
+        'SEARCH_DOCUMENTS',
+        `Searched documents in database with term: "${searchTerm}" - ${filteredDocs.length} results`
+      );
+      
+      return filteredDocs;
+      
     } catch (error) {
       setError(error.message);
-      throw error;
+      throw new Error('Search failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -208,7 +307,9 @@ export const useDocuments = (filters = {}) => {
 
   // Fetch documents when user or filters change
   useEffect(() => {
-    fetchDocuments();
+    if (currentUser) {
+      fetchDocuments();
+    }
   }, [currentUser, JSON.stringify(filters)]);
 
   return {
@@ -217,14 +318,11 @@ export const useDocuments = (filters = {}) => {
     error,
     stats,
     fetchDocuments,
-    uploadDocument,
     getDocument,
     downloadDocument,
     updateDocument,
     deleteDocument,
-    shareDocument,
     searchDocuments,
-    getSharedDocuments,
     setError
   };
 };
