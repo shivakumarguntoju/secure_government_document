@@ -12,6 +12,13 @@ class Logger {
    */
   static async logToFirestore(userId, action, details, documentId = null) {
     try {
+      // Check if db is properly initialized
+      if (!db) {
+        console.warn('Firestore database not initialized, falling back to localStorage');
+        this.logToLocalStorage(userId, action, details, documentId);
+        return;
+      }
+
       const logData = {
         userId,
         action,
