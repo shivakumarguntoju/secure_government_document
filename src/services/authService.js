@@ -165,7 +165,21 @@ class AuthService {
     try {
       // Check if Firestore is available
       if (!db) {
-        throw new Error('Database not configured');
+        console.warn('Firestore not available, creating basic profile');
+        const user = auth.currentUser;
+        if (user) {
+          return {
+            uid: userId,
+            email: user.email,
+            displayName: user.displayName || 'User',
+            firstName: user.displayName?.split(' ')[0] || 'User',
+            lastName: user.displayName?.split(' ')[1] || '',
+            isOffline: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+        }
+        throw new Error('Database not available and no user found');
       }
       
       const userDoc = await getDoc(doc(db, 'users', userId));

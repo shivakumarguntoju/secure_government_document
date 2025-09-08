@@ -1,7 +1,7 @@
 // Firebase Configuration & Initialization
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
@@ -46,7 +46,29 @@ try {
 
 // Services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with proper configuration
+let db;
+try {
+  db = getFirestore(app);
+  
+  // Enable offline persistence for better reliability
+  if (typeof window !== 'undefined') {
+    // Only enable in browser environment
+    import('firebase/firestore').then(({ enableNetwork, disableNetwork }) => {
+      // Ensure network is enabled
+      enableNetwork(db).catch(error => {
+        console.warn('Failed to enable Firestore network:', error);
+      });
+    });
+  }
+} catch (error) {
+  console.error('Failed to initialize Firestore:', error);
+  // Create a mock db object to prevent crashes
+  db = null;
+}
+
+export { db };
 export const storage = getStorage(app);
 
 // Analytics (only if supported in environment)

@@ -36,6 +36,20 @@ export const useDocuments = (filters = {}) => {
   // Fetch documents from database
   const fetchDocuments = async () => {
     if (!currentUser) return;
+    
+    // Check if Firestore is available
+    if (!db) {
+      console.warn('Firestore not available, cannot fetch documents');
+      setDocuments([]);
+      setStats({
+        totalDocuments: 0,
+        sharedDocuments: 0,
+        recentUploads: 0,
+        storageUsed: 0
+      });
+      setLoading(false);
+      return;
+    }
 
     // Check cache first
     const cacheKey = `${currentUser.uid}_${JSON.stringify(filters)}`;

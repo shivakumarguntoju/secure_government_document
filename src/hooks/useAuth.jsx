@@ -132,6 +132,22 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(!!user);
         
         if (user) {
+          // Check if Firestore is available
+          if (!db) {
+            console.warn('Firestore not available, using basic profile');
+            const basicProfile = {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || 'User',
+              firstName: user.displayName?.split(' ')[0] || 'User',
+              lastName: user.displayName?.split(' ')[1] || '',
+              isOffline: true
+            };
+            setUserProfile(basicProfile);
+            setLoading(false);
+            return;
+          }
+          
           // Check cache first to avoid unnecessary database calls
           const cacheKey = user.uid;
           const cached = profileCache.get(cacheKey);
