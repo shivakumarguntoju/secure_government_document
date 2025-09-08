@@ -10,7 +10,7 @@ import {
   doc,
   getDoc,
   updateDoc,
-  deleteDoc
+  deleteDoc,
   limit
 } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
