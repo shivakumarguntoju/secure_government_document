@@ -84,7 +84,6 @@ const Dashboard = () => {
       let q = query(
         collection(db, 'activityLogs'),
         where('userId', '==', currentUser.uid),
-        orderBy('timestamp', 'desc'),
         limit(3) // Reduce to 3 for faster loading
       );
       

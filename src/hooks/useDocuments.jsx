@@ -69,7 +69,6 @@ export const useDocuments = (filters = {}) => {
       let q = query(
         collection(db, 'documents'),
         where('userId', '==', currentUser.uid),
-        where('status', '==', 'active'),
         orderBy('uploadedAt', 'desc'),
         limit(50) // Limit initial load for better performance
       );
