@@ -76,6 +76,7 @@ export const useDocuments = (filters = {}) => {
       
       // Apply document type filter
       if (filters.documentType && filters.documentType !== 'all') {
+      }
 
       // Simplified query to avoid composite index requirement
       let q = query(
@@ -92,6 +93,9 @@ export const useDocuments = (filters = {}) => {
           id: doc.id,
           ...data,
           uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
+        }
+      }
+      )
       const docs = querySnapshot.docs
         .map(doc => ({
           id: doc.id,
@@ -105,6 +109,7 @@ export const useDocuments = (filters = {}) => {
         ...doc,
         uploadedAt: doc.uploadedAt?.toDate?.() || new Date()
       });
+      )
       
       setDocuments(formattedDocs);
       
