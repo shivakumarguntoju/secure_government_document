@@ -76,15 +76,14 @@ export const useDocuments = (filters = {}) => {
       
       // Apply document type filter
       if (filters.documentType && filters.documentType !== 'all') {
-        q = query(
-          collection(db, 'documents'),
-          where('userId', '==', currentUser.uid),
-          where('status', '==', 'active'),
-          where('documentType', '==', filters.documentType),
-          orderBy('uploadedAt', 'desc'),
-          limit(50)
-        );
-      }
+
+      // Simplified query to avoid composite index requirement
+      let q = query(
+        collection(db, 'documents'),
+        where('userId', '==', user.uid),
+        orderBy('uploadedAt', 'desc'),
+        limit(50)
+      );
       
       const querySnapshot = await getDocs(q);
       const docs = querySnapshot.docs.map(doc => {
@@ -93,12 +92,21 @@ export const useDocuments = (filters = {}) => {
           id: doc.id,
           ...data,
           uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+      const docs = querySnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        // Filter for active status in memory to avoid index requirement
+        .filter(doc => doc.status === 'active');
+      
+      const formattedDocs = docs.map(doc => ({
           lastAccessed: data.lastAccessed?.toDate ? data.lastAccessed.toDate() : new Date(data.lastAccessed)
-        };
+        ...doc,
+        uploadedAt: doc.uploadedAt?.toDate?.() || new Date()
       });
       
-      setDocuments(docs);
+      setDocuments(formattedDocs);
       
       // Calculate stats
       const thirtyDaysAgo = new Date();
@@ -116,7 +124,7 @@ export const useDocuments = (filters = {}) => {
       
       // Cache the results
       documentsCache.set(cacheKey, {
-        documents: docs,
+        localStorage.setItem('cachedDocuments', JSON.stringify(formattedDocs));
         stats: statistics,
         timestamp: Date.now()
       });

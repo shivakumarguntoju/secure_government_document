@@ -80,23 +80,31 @@ const Dashboard = () => {
     try {
       setActivityLoading(true);
       
-      // Fetch recent activity from database
-      const q = query(
+      // Simplified query to avoid composite index requirement
+      let q = query(
         collection(db, 'activityLogs'),
         where('userId', '==', currentUser.uid),
-        where('action', 'in', ['UPLOAD_DOCUMENT', 'DOWNLOAD_DOCUMENT', 'VIEW_DOCUMENT', 'DELETE_DOCUMENT']),
         orderBy('timestamp', 'desc'),
         limit(3) // Reduce to 3 for faster loading
       );
       
       const querySnapshot = await getDocs(q);
-      const activities = querySnapshot.docs.map(doc => ({
+      const activities = querySnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        // Filter actions in memory to avoid composite index
+        .filter(activity => ['upload', 'view', 'share', 'delete'].includes(activity.action));
+      
+      const formattedActivities = activities.map(activity => ({
         id: doc.id,
-        ...doc.data(),
+        ...activity,
+        timestamp: activity.timestamp?.toDate?.() || new Date()
         timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date(doc.data().timestamp)
       }));
       
-      setRecentActivity(activities);
+      setRecentActivity(formattedActivities.slice(0, 3));
     } catch (error) {
       console.error('Failed to fetch recent activity:', error);
       setRecentActivity([]);
