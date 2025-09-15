@@ -101,7 +101,6 @@ const Dashboard = () => {
         id: doc.id,
         ...activity,
         timestamp: activity.timestamp?.toDate?.() || new Date()
-        timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date(doc.data().timestamp)
       }));
       
       setRecentActivity(formattedActivities.slice(0, 3));
