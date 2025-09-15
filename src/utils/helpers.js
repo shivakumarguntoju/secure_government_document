@@ -37,6 +37,9 @@ export const formatDateTime = (date) => {
  * @returns {string} - Masked Aadhaar number
  */
 export const maskAadhaar = (aadhaar) => {
+  if (!aadhaar) {
+    return 'N/A';
+  }
   if (aadhaar.length === 12) {
     return `XXXX XXXX ${aadhaar.slice(-4)}`;
   }

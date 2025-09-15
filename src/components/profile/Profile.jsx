@@ -285,7 +285,7 @@ const Profile = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Aadhaar Number</p>
-                <p className="font-medium text-gray-900">{maskAadhaar(userProfile.aadhaarNumber)}</p>
+                <p className="font-medium text-gray-900">{maskAadhaar(userProfile.aadhaarNumber || '')}</p>
               </div>
             </div>
 
