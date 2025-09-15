@@ -48,27 +48,26 @@ try {
 export const auth = getAuth(app);
 
 // Initialize Firestore with proper configuration
-let db;
+let firestoreDb = null;
 try {
-  db = getFirestore(app);
+  firestoreDb = getFirestore(app);
   
   // Enable offline persistence for better reliability
   if (typeof window !== 'undefined') {
     // Only enable in browser environment
     import('firebase/firestore').then(({ enableNetwork, disableNetwork }) => {
       // Ensure network is enabled
-      enableNetwork(db).catch(error => {
+      enableNetwork(firestoreDb).catch(error => {
         console.warn('Failed to enable Firestore network:', error);
       });
     });
   }
 } catch (error) {
   console.error('Failed to initialize Firestore:', error);
-  // Create a mock db object to prevent crashes
-  db = null;
+  firestoreDb = null;
 }
 
-export { db };
+export const db = firestoreDb;
 export const storage = getStorage(app);
 
 // Analytics (only if supported in environment)
