@@ -76,26 +76,10 @@ export const useDocuments = (filters = {}) => {
       
       // Apply document type filter
       if (filters.documentType && filters.documentType !== 'all') {
+        // Additional filtering can be added here if needed
       }
-
-      // Simplified query to avoid composite index requirement
-      let q = query(
-        collection(db, 'documents'),
-        where('userId', '==', user.uid),
-        orderBy('uploadedAt', 'desc'),
-        limit(50)
-      );
       
       const querySnapshot = await getDocs(q);
-      const docs = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
-        }
-      }
-      )
       const docs = querySnapshot.docs
         .map(doc => ({
           id: doc.id,
@@ -105,11 +89,10 @@ export const useDocuments = (filters = {}) => {
         .filter(doc => doc.status === 'active');
       
       const formattedDocs = docs.map(doc => ({
-          lastAccessed: data.lastAccessed?.toDate ? data.lastAccessed.toDate() : new Date(data.lastAccessed)
         ...doc,
-        uploadedAt: doc.uploadedAt?.toDate?.() || new Date()
-      });
-      )
+        uploadedAt: doc.uploadedAt?.toDate?.() || new Date(),
+        lastAccessed: doc.lastAccessed?.toDate?.() || new Date()
+      }));
       
       setDocuments(formattedDocs);
       
@@ -129,7 +112,7 @@ export const useDocuments = (filters = {}) => {
       
       // Cache the results
       documentsCache.set(cacheKey, {
-        localStorage.setItem('cachedDocuments', JSON.stringify(formattedDocs));
+        documents: formattedDocs,
         stats: statistics,
         timestamp: Date.now()
       });
