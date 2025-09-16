@@ -89,6 +89,9 @@ export const useDocuments = (filters = {}) => {
       const formattedDocs = docs.map(doc => ({
         ...doc,
         uploadedAt: doc.uploadedAt?.toDate?.() || new Date(),
+      }
+      )
+      )
       // Client-side filtering and sorting
       const formattedDocs = docs
         .filter(doc => doc.status === 'active')
