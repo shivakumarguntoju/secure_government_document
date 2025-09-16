@@ -68,7 +68,7 @@ export const useDocuments = (filters = {}) => {
       
       let q = query(
         collection(db, 'documents'),
-        where('userId', '==', currentUser.uid)
+        where('userId', '==', currentUser.uid),
         limit(50) // Limit initial load for better performance
       );
       
