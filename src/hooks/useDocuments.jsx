@@ -68,8 +68,7 @@ export const useDocuments = (filters = {}) => {
       
       let q = query(
         collection(db, 'documents'),
-        where('userId', '==', currentUser.uid),
-        orderBy('uploadedAt', 'desc'),
+        where('userId', '==', currentUser.uid)
         limit(50) // Limit initial load for better performance
       );
       
@@ -90,8 +89,10 @@ export const useDocuments = (filters = {}) => {
       const formattedDocs = docs.map(doc => ({
         ...doc,
         uploadedAt: doc.uploadedAt?.toDate?.() || new Date(),
-        lastAccessed: doc.lastAccessed?.toDate?.() || new Date()
-      }));
+      // Client-side filtering and sorting
+      const formattedDocs = docs
+        .filter(doc => doc.status === 'active')
+        .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
       
       setDocuments(formattedDocs);
       
