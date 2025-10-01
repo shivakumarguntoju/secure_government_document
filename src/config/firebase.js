@@ -70,7 +70,22 @@ try {
 export const db = firestoreDb;
 
 // Initialize Storage with proper configuration
-export const storage = getStorage(app);
+let firebaseStorage = null;
+try {
+  firebaseStorage = getStorage(app);
+  
+  // Configure storage settings for better CORS handling
+  if (typeof window !== 'undefined') {
+    // Set custom timeout for uploads
+    firebaseStorage.maxUploadRetryTime = 120000; // 2 minutes
+    firebaseStorage.maxOperationRetryTime = 120000; // 2 minutes
+  }
+} catch (error) {
+  console.error('Failed to initialize Firebase Storage:', error);
+  firebaseStorage = null;
+}
+
+export const storage = firebaseStorage;
 
 // Analytics (only if supported in environment)
 export const analytics = await isSupported().then(yes => (yes ? getAnalytics(app) : null));

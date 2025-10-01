@@ -165,6 +165,9 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       // Upload file with progress tracking
       const uploadTask = uploadBytesResumable(storageRef, file, metadata);
       
+      // Add a small delay to help with CORS issues
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       return new Promise((resolve, reject) => {
         uploadTask.on('state_changed',
           (snapshot) => {
@@ -174,17 +177,19 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
           (error) => {
             console.error('Upload error:', error);
             
-            // Handle specific Firebase Storage errors
-            let errorMessage = 'Upload failed. Please try again.';
+            // Handle specific Firebase Storage errors including CORS
+            let errorMessage = 'Upload failed due to server configuration. Please try again.';
             
             if (error.code === 'storage/unauthorized') {
               errorMessage = 'Upload failed: You do not have permission to upload files.';
             } else if (error.code === 'storage/canceled') {
               errorMessage = 'Upload was canceled.';
             } else if (error.code === 'storage/unknown') {
-              errorMessage = 'Upload failed due to a server error. Please try again later.';
-            } else if (error.message.includes('CORS')) {
-              errorMessage = 'Upload failed due to browser security restrictions. Please try refreshing the page.';
+              errorMessage = 'Upload failed due to server configuration. This may be a temporary issue.';
+            } else if (error.message.includes('CORS') || error.message.includes('blocked')) {
+              errorMessage = 'Upload blocked by browser security policy. Please ensure Firebase Storage is properly configured.';
+            } else if (error.code === 'storage/retry-limit-exceeded') {
+              errorMessage = 'Upload failed after multiple attempts. Please check your internet connection.';
             }
             
             reject(new Error(errorMessage));
@@ -193,6 +198,14 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
             try {
               // Get download URL
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              // Verify the download URL is accessible
+              try {
+                await fetch(downloadURL, { method: 'HEAD' });
+              } catch (fetchError) {
+                console.warn('Download URL verification failed:', fetchError);
+                // Continue anyway as the URL might still work for downloads
+              }
               
               // Check if Firestore is available
               if (!db) {
