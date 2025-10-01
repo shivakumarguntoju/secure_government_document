@@ -144,6 +144,11 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     setUploadProgress(0);
 
     try {
+      // Check if storage is available
+      if (!storage) {
+        throw new Error('Firebase Storage is not available. Please check your configuration.');
+      }
+
       // Generate unique filename
       const timestamp = Date.now();
       const extension = file.name.split('.').pop();
@@ -152,8 +157,18 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       // Create storage reference
       const storageRef = ref(storage, `documents/${currentUser.uid}/${fileName}`);
       
+      // Add custom metadata to help with CORS
+      const metadata = {
+        contentType: file.type,
+        customMetadata: {
+          'uploadedBy': currentUser.uid,
+          'originalName': file.name,
+          'documentType': formData.documentType
+        }
+      };
+      
       // Upload file with progress tracking
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
       
       return new Promise((resolve, reject) => {
         uploadTask.on('state_changed',
@@ -163,12 +178,31 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
           },
           (error) => {
             console.error('Upload error:', error);
-            reject(new Error('Upload failed. Please check your connection and try again.'));
+            
+            // Handle specific Firebase Storage errors
+            let errorMessage = 'Upload failed. Please try again.';
+            
+            if (error.code === 'storage/unauthorized') {
+              errorMessage = 'Upload failed: You do not have permission to upload files.';
+            } else if (error.code === 'storage/canceled') {
+              errorMessage = 'Upload was canceled.';
+            } else if (error.code === 'storage/unknown') {
+              errorMessage = 'Upload failed due to a server error. Please try again later.';
+            } else if (error.message.includes('CORS')) {
+              errorMessage = 'Upload failed due to browser security restrictions. Please try refreshing the page.';
+            }
+            
+            reject(new Error(errorMessage));
           },
           async () => {
             try {
               // Get download URL
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              // Check if Firestore is available
+              if (!db) {
+                throw new Error('Database is not available. Please check your connection.');
+              }
               
               // Save document metadata to Firestore
               const documentData = {
@@ -204,7 +238,16 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
               
             } catch (error) {
               console.error('Database save error:', error);
-              reject(new Error('Failed to save document information to database. Please try again.'));
+              
+              let errorMessage = 'Failed to save document information to database.';
+              
+              if (error.code === 'permission-denied') {
+                errorMessage = 'Database access denied. Please check your permissions.';
+              } else if (error.code === 'unavailable') {
+                errorMessage = 'Database is currently unavailable. Please try again later.';
+              }
+              
+              reject(new Error(errorMessage));
             }
           }
         );
@@ -212,7 +255,16 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       
     } catch (error) {
       console.error('Upload initialization failed:', error);
-      throw new Error('Upload failed. Please try again.');
+      
+      let errorMessage = 'Upload failed. Please try again.';
+      
+      if (error.message.includes('Storage is not available')) {
+        errorMessage = 'File storage service is not available. Please check your internet connection.';
+      } else if (error.message.includes('configuration')) {
+        errorMessage = 'Upload service is not properly configured. Please contact support.';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 
