@@ -70,28 +70,7 @@ try {
 export const db = firestoreDb;
 
 // Initialize Storage with proper configuration
-let firebaseStorage = null;
-try {
-  firebaseStorage = getStorage(app);
-  
-  // Configure storage for better CORS handling
-  if (typeof window !== 'undefined') {
-    // Set custom metadata for uploads
-    firebaseStorage._delegate._config = {
-      ...firebaseStorage._delegate._config,
-      customMetadata: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    };
-  }
-} catch (error) {
-  console.error('Failed to initialize Firebase Storage:', error);
-  firebaseStorage = null;
-}
-
-export const storage = firebaseStorage;
+export const storage = getStorage(app);
 
 // Analytics (only if supported in environment)
 export const analytics = await isSupported().then(yes => (yes ? getAnalytics(app) : null));

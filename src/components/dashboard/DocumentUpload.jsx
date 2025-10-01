@@ -144,11 +144,6 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     setUploadProgress(0);
 
     try {
-      // Check if storage is available
-      if (!storage) {
-        throw new Error('Firebase Storage is not available. Please check your configuration.');
-      }
-
       // Generate unique filename
       const timestamp = Date.now();
       const extension = file.name.split('.').pop();
