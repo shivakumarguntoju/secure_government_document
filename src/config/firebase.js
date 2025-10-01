@@ -74,17 +74,11 @@ let firebaseStorage = null;
 try {
   firebaseStorage = getStorage(app);
   
-  // Configure storage for better CORS handling
+  // Configure storage settings for better CORS handling
   if (typeof window !== 'undefined') {
-    // Set custom metadata for uploads
-    firebaseStorage._delegate._config = {
-      ...firebaseStorage._delegate._config,
-      customMetadata: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-      }
-    };
+    // Set custom timeout for uploads
+    firebaseStorage.maxUploadRetryTime = 120000; // 2 minutes
+    firebaseStorage.maxOperationRetryTime = 120000; // 2 minutes
   }
 } catch (error) {
   console.error('Failed to initialize Firebase Storage:', error);
