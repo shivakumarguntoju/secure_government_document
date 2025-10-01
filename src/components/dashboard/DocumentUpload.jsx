@@ -3,11 +3,7 @@ import React, { useState } from 'react';
 import { Upload, FileText, AlertCircle, CheckCircle, X, Database } from 'lucide-react';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth.jsx';
-import { 
-  ref, 
-  uploadBytesResumable, 
-  getDownloadURL 
-} from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   collection, 
   addDoc 
@@ -155,124 +151,82 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       // Add custom metadata to help with CORS
       const metadata = {
         contentType: file.type,
-        customMetadata: {
-          'uploadedBy': currentUser.uid,
-          'originalName': file.name,
-          'documentType': formData.documentType
-        }
+      // Use simple upload instead of resumable to avoid CORS issues
+      setUploadProgress(25);
+      
+      // Upload file using uploadBytes (simpler, less CORS issues)
+      const uploadResult = await uploadBytes(storageRef, file, {
+        contentType: file.type
+      });
+      
+      setUploadProgress(50);
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+      
+      setUploadProgress(75);
+      
+      // Check if Firestore is available
+      if (!db) {
+        throw new Error('Database is not available. Please check your connection.');
+      }
+      
+      // Save document metadata to Firestore
+      const documentData = {
+        userId: currentUser.uid,
+        fileName: file.name,
+        originalFileName: file.name,
+        storagePath: `documents/${currentUser.uid}/${fileName}`,
+        storageFileName: fileName,
+        fileType: file.type,
+        fileUrl: downloadURL,
+        documentType: formData.documentType,
+        description: formData.description.trim(),
+        uploadedAt: new Date(),
+        updatedAt: new Date(),
+        isShared: false,
+        sharedWith: [],
+        fileSize: file.size,
+        status: 'active',
+        downloadCount: 0,
+        lastAccessed: new Date()
       };
       
-      // Upload file with progress tracking
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      const docRef = await addDoc(collection(db, 'documents'), documentData);
       
-      // Add a small delay to help with CORS issues
-      await new Promise(resolve => setTimeout(resolve, 100));
+      setUploadProgress(100);
+      setUploadComplete(true);
+      toast.success('Document uploaded and saved to database successfully!');
       
-      return new Promise((resolve, reject) => {
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(Math.round(progress));
-          },
-          (error) => {
-            console.error('Upload error:', error);
-            
-            // Handle specific Firebase Storage errors including CORS
-            let errorMessage = 'Upload failed due to server configuration. Please try again.';
-            
-            if (error.code === 'storage/unauthorized') {
-              errorMessage = 'Upload failed: You do not have permission to upload files.';
-            } else if (error.code === 'storage/canceled') {
-              errorMessage = 'Upload was canceled.';
-            } else if (error.code === 'storage/unknown') {
-              errorMessage = 'Upload failed due to server configuration. This may be a temporary issue.';
-            } else if (error.message.includes('CORS') || error.message.includes('blocked')) {
-              errorMessage = 'Upload blocked by browser security policy. Please ensure Firebase Storage is properly configured.';
-            } else if (error.code === 'storage/retry-limit-exceeded') {
-              errorMessage = 'Upload failed after multiple attempts. Please check your internet connection.';
-            }
-            
-            reject(new Error(errorMessage));
-          },
-          async () => {
-            try {
-              // Get download URL
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              
-              // Verify the download URL is accessible
-              try {
-                await fetch(downloadURL, { method: 'HEAD' });
-              } catch (fetchError) {
-                console.warn('Download URL verification failed:', fetchError);
-                // Continue anyway as the URL might still work for downloads
-              }
-              
-              // Check if Firestore is available
-              if (!db) {
-                throw new Error('Database is not available. Please check your connection.');
-              }
-              
-              // Save document metadata to Firestore
-              const documentData = {
-                userId: currentUser.uid,
-                fileName: file.name,
-                originalFileName: file.name,
-                storagePath: `documents/${currentUser.uid}/${fileName}`,
-                storageFileName: fileName,
-                fileType: file.type,
-                fileUrl: downloadURL,
-                documentType: formData.documentType,
-                description: formData.description.trim(),
-                uploadedAt: new Date(),
-                updatedAt: new Date(),
-                isShared: false,
-                sharedWith: [],
-                fileSize: file.size,
-                status: 'active',
-                downloadCount: 0,
-                lastAccessed: new Date()
-              };
-              
-              const docRef = await addDoc(collection(db, 'documents'), documentData);
-              
-              setUploadComplete(true);
-              toast.success('Document uploaded and saved to database successfully!');
-              
-              resolve({
-                success: true,
-                documentId: docRef.id,
-                document: { id: docRef.id, ...documentData }
-              });
-              
-            } catch (error) {
-              console.error('Database save error:', error);
-              
-              let errorMessage = 'Failed to save document information to database.';
-              
-              if (error.code === 'permission-denied') {
-                errorMessage = 'Database access denied. Please check your permissions.';
-              } else if (error.code === 'unavailable') {
-                errorMessage = 'Database is currently unavailable. Please try again later.';
-              }
-              
-              reject(new Error(errorMessage));
-            }
-          }
-        );
-      });
+      return {
+        success: true,
+        documentId: docRef.id,
+        document: { id: docRef.id, ...documentData }
+      };
       
     } catch (error) {
       console.error('Upload initialization failed:', error);
       
-      let errorMessage = 'Upload failed. Please try again.';
+      let errorMessage = 'Upload failed due to network or configuration issues.';
       
-      if (error.message.includes('Storage is not available')) {
-        errorMessage = 'File storage service is not available. Please check your internet connection.';
-      } else if (error.message.includes('configuration')) {
-        errorMessage = 'Upload service is not properly configured. Please contact support.';
+      if (error.code === 'storage/unauthorized') {
+        errorMessage = 'Upload failed: You do not have permission to upload files.';
+      } else if (error.code === 'storage/canceled') {
+        errorMessage = 'Upload was canceled.';
+      } else if (error.code === 'storage/unknown' || error.message.includes('CORS')) {
+        errorMessage = 'Upload blocked by browser security. This is a known issue with the development environment.';
+      } else if (error.code === 'permission-denied') {
+        errorMessage = 'Database access denied. Please check your permissions.';
+      } else if (error.code === 'unavailable') {
+        errorMessage = 'Service is currently unavailable. Please try again later.';
       }
       
       throw new Error(errorMessage);
+    } finally {
+      if (!uploadComplete) {
+        setUploading(false);
+        setUploadProgress(0);
+      }
     }
   };
 
