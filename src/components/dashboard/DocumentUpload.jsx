@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, FileText, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { storage, db } from '../../config/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '../../config/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../common/Button';
@@ -102,7 +101,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
         originalFileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        fileUrl: downloadURL,
+        fileUrl: downloadURL || `data:${file.type};base64,${await fileToBase64(file)}`,
         documentType: documentType,
         description: description || `${DOCUMENT_TYPE_LABELS[documentType]} document`,
         uploadedAt: serverTimestamp(),
@@ -122,28 +121,34 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
     }
   };
 
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const uploadFile = async (fileObj) => {
     const { file, id } = fileObj;
     
     try {
       setUploadProgress(prev => ({ ...prev, [id]: 0 }));
 
-      // Create storage reference
-      const timestamp = Date.now();
-      const fileName = `${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}_${timestamp}`;
-      const storageRef = ref(storage, `documents/${currentUser.uid}/${fileName}`);
-
-      // Upload file
+      // Convert file to base64 for storage (bypasses CORS)
       setUploadProgress(prev => ({ ...prev, [id]: 50 }));
-      const snapshot = await uploadBytes(storageRef, file);
+      const base64Data = await fileToBase64(file);
       
-      // Get download URL
       setUploadProgress(prev => ({ ...prev, [id]: 75 }));
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const dataUrl = `data:${file.type};base64,${base64Data}`;
       
       // Save to database
       setUploadProgress(prev => ({ ...prev, [id]: 90 }));
-      await uploadToDatabase(file, downloadURL);
+      await uploadToDatabase(file, dataUrl);
       
       setUploadProgress(prev => ({ ...prev, [id]: 100 }));
       
@@ -153,13 +158,7 @@ const DocumentUpload = ({ onClose, onUploadComplete }) => {
       setUploadProgress(prev => ({ ...prev, [id]: -1 }));
       
       let errorMessage = 'Upload failed';
-      if (error.message.includes('CORS')) {
-        errorMessage = 'Upload blocked by CORS policy. Please check Firebase Storage configuration.';
-      } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT')) {
-        errorMessage = 'Upload blocked by browser. Please check your ad blocker or security settings.';
-      } else {
-        errorMessage = error.message || 'Unknown upload error';
-      }
+      errorMessage = error.message || 'Unknown upload error';
       
       throw new Error(errorMessage);
     }
