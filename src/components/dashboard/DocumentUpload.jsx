@@ -2,15 +2,19 @@ import React, { useState, useCallback } from 'react';
 import { Upload, FileText, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { storage, db } from '../../config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../common/Button';
 import ErrorMessage from '../common/ErrorMessage';
 import Modal from '../common/Modal';
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
+import toast from 'react-hot-toast';
 
 const DocumentUpload = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [files, setFiles] = useState([]);
+  const [documentType, setDocumentType] = useState(DOCUMENT_TYPES.OTHER);
+  const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [error, setError] = useState('');
@@ -87,23 +91,27 @@ const DocumentUpload = () => {
   };
 
   const uploadToDatabase = async (file, downloadURL) => {
-    if (!storage) {
-      throw new Error('Firebase Storage is not available. Please check your configuration.');
+    if (!db) {
+      throw new Error('Firebase Firestore is not available. Please check your configuration.');
     }
 
     try {
       const docData = {
-        name: file.name,
-        originalName: file.name,
-        size: file.size,
-        type: file.type,
-        downloadURL,
-        uploadedBy: user.uid,
+        userId: currentUser.uid,
+        fileName: file.name,
+        originalFileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileUrl: downloadURL,
+        documentType: documentType,
+        description: description || `${DOCUMENT_TYPE_LABELS[documentType]} document`,
         uploadedAt: serverTimestamp(),
-        tags: [],
-        description: '',
-        isPublic: false,
-        sharedWith: []
+        updatedAt: serverTimestamp(),
+        isShared: false,
+        sharedWith: [],
+        status: 'active',
+        downloadCount: 0,
+        lastAccessed: serverTimestamp()
       };
 
       const docRef = await addDoc(collection(db, 'documents'), docData);
@@ -123,7 +131,7 @@ const DocumentUpload = () => {
       // Create storage reference
       const timestamp = Date.now();
       const fileName = `${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}_${timestamp}`;
-      const storageRef = ref(storage, `documents/${user.uid}/${fileName}`);
+      const storageRef = ref(storage, `documents/${currentUser.uid}/${fileName}`);
 
       // Upload file
       setUploadProgress(prev => ({ ...prev, [id]: 50 }));
@@ -165,7 +173,7 @@ const DocumentUpload = () => {
       return;
     }
 
-    if (!user) {
+    if (!currentUser) {
       setError('You must be logged in to upload documents.');
       return;
     }
@@ -183,8 +191,19 @@ const DocumentUpload = () => {
       
       if (successful > 0) {
         setSuccess(`Successfully uploaded ${successful} file(s).`);
+        toast.success(`Successfully uploaded ${successful} file(s) to database!`);
         setFiles([]);
         setUploadProgress({});
+        
+        // Auto-close modal and refresh documents after 2 seconds
+        setTimeout(() => {
+          if (onUploadComplete) {
+            onUploadComplete();
+          }
+          if (onClose) {
+            onClose();
+          }
+        }, 2000);
       }
       
       if (failed.length > 0) {
@@ -221,23 +240,54 @@ const DocumentUpload = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-          <Upload className="mr-3 text-blue-600" />
-          Upload Documents
-        </h2>
-
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Upload Documents to Database"
+      size="large"
+    >
+      <div className="space-y-6">
         {error && <ErrorMessage message={error} />}
         
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md flex items-center">
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md flex items-center">
             <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
             <span className="text-green-800">{success}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Document Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Document Type *
+            </label>
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Brief description of the document(s)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            />
+          </div>
+
           {/* File Drop Zone */}
           <div
             className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors duration-200"
@@ -313,19 +363,28 @@ const DocumentUpload = () => {
 
           {/* Upload Button */}
           {files.length > 0 && (
-            <div className="mt-6 flex justify-end">
+            <div className="flex justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
               <Button
                 type="submit"
+                variant="primary"
                 disabled={uploading}
-                className="px-6 py-2"
+                loading={uploading}
               >
-                {uploading ? 'Uploading...' : `Upload ${files.length} File(s)`}
+                {uploading ? 'Uploading to Database...' : `Upload ${files.length} File(s) to Database`}
               </Button>
             </div>
           )}
         </form>
       </div>
-    </div>
+    </Modal>
   );
 };
 
