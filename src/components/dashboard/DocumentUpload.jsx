@@ -10,7 +10,7 @@ import Modal from '../common/Modal';
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from '../../constants';
 import toast from 'react-hot-toast';
 
-const DocumentUpload = () => {
+const DocumentUpload = ({ onClose, onUploadComplete }) => {
   const { currentUser } = useAuth();
   const [files, setFiles] = useState([]);
   const [documentType, setDocumentType] = useState(DOCUMENT_TYPES.OTHER);
