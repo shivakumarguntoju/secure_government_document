@@ -342,7 +342,6 @@ const Dashboard = () => {
       }>
         {activeTab === 'my-documents' ? (
           <>
-            <DocumentStats stats={stats} />
             <DocumentList
               documents={documents}
               onDocumentUpdated={fetchDocuments}

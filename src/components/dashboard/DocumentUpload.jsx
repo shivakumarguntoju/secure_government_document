@@ -2,10 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { Upload, FileText, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { storage, db } from '../../config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../common/Button';
 import ErrorMessage from '../common/ErrorMessage';
+import Modal from '../common/Modal';
 
 const DocumentUpload = () => {
   const { user } = useAuth();
