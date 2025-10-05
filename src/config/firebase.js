@@ -81,6 +81,15 @@ try {
 export const storage = firebaseStorage;
 
 // Analytics (only if supported in environment)
-export const analytics = await isSupported().then(yes => (yes ? getAnalytics(app) : null));
+let analytics = null;
+isSupported().then(yes => {
+  if (yes) {
+    analytics = getAnalytics(app);
+  }
+}).catch(() => {
+  analytics = null;
+});
+
+export { analytics };
 
 export default app;

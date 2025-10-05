@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureGov Docs - Project Presentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .presentation {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide {
+            width: 90%;
+            max-width: 1200px;
+            height: 85vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px;
+            display: none;
+            flex-direction: column;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            display: flex;
+        }
+
+        .slide-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .slide-title {
+            font-size: 48px;
+            color: #1e40af;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .slide-subtitle {
+            font-size: 24px;
+            color: #6b7280;
+            font-weight: 400;
+        }
+
+        .slide-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .content-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card p, .card ul {
+            font-size: 16px;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+
+        .card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .card ul li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .card ul li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .list-content {
+            font-size: 20px;
+            line-height: 1.8;
+            color: #374151;
+        }
+
+        .list-content ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .list-content li {
+            padding: 12px 0;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        .list-content li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .highlight {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+        }
+
+        .highlight h3 {
+            color: #78350f;
+            font-size: 26px;
+            margin-bottom: 15px;
+        }
+
+        .highlight p {
+            color: #92400e;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .nav-button {
+            background: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .slide-number {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        .icon {
+            font-size: 28px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 30px 20px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .stat-number {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .section {
+            background: #f9fafb;
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .section h3 {
+            color: #1e40af;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .section li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #4b5563;
+            font-size: 17px;
+        }
+
+        .section li:before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #3b82f6;
+            font-size: 24px;
+        }
+
+        .architecture-flow {
+            background: #f3f4f6;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .flow-step {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 5px solid #3b82f6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .flow-step h4 {
+            color: #1e40af;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .flow-step p {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        @media print {
+            .navigation {
+                display: none;
+            }
+            .slide {
+                page-break-after: always;
+                display: flex !important;
+                height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation">
+        <!-- Slide 1: Title -->
+        <div class="slide active" data-slide="1">
+            <div class="slide-content">
+                <div style="text-align: center;">
+                    <div style="font-size: 72px; margin-bottom: 20px;">🛡️</div>
+                    <h1 style="font-size: 64px; color: #1e40af; margin-bottom: 20px; font-weight: 800;">SecureGov Docs</h1>
+                    <p style="font-size: 32px; color: #6b7280; margin-bottom: 40px;">Secure Government Document Sharing Platform</p>
+                    <div style="width: 200px; height: 4px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); margin: 0 auto 40px;"></div>
+                    <p style="font-size: 22px; color: #9ca3af; margin-bottom: 30px;">A comprehensive digital document management system</p>
+                    <p style="font-size: 20px; color: #9ca3af;">Built with React 18, Firebase & Tailwind CSS</p>
+                </div>
+            </div>
+            <div class="slide-number">1 / 12</div>
+        </div>
+
+        <!-- Slide 2: Project Overview -->
+        <div class="slide" data-slide="2">
+            <div class="slide-header">
+                <h2 class="slide-title">📋 Project Overview</h2>
+                <p class="slide-subtitle">What is SecureGov Docs?</p>
+            </div>
+            <div class="slide-content">
+                <div class="list-content">
+                    <ul>
+                        <li><strong>Purpose:</strong> Digital storage and management of government documents for citizens and families</li>
+                        <li><strong>Target Users:</strong> Citizens who need to securely store and share important documents like Aadhaar, PAN, Passport, Marksheets</li>
+                        <li><strong>Key Value:</strong> Centralized, secure, and accessible document management with family sharing capabilities</li>
+                        <li><strong>Security First:</strong> Built with enterprise-grade security using Firebase Authentication and Cloud Storage</li>
+                    </ul>
+                </div>
+                <div class="highlight">
+                    <h3>🎯 Mission Statement</h3>
+                    <p>Empowering citizens with secure, digital document management for the future of government services.</p>
+                </div>
+            </div>
+            <div class="slide-number">2 / 12</div>
+        </div>
+
+        <!-- Slide 3: Core Features -->
+        <div class="slide" data-slide="3">
+            <div class="slide-header">
+                <h2 class="slide-title">✨ Core Features</h2>
+                <p class="slide-subtitle">What makes SecureGov Docs powerful</p>
+            </div>
+            <div class="slide-content">
+                <div class="content-grid">
+                    <div class="card">
+                        <h3><span class="icon">🔐</span> Secure Authentication</h3>
+                        <ul>
+                            <li>Email/Password authentication</li>
+                            <li>Aadhaar validation (Verhoeff algorithm)</li>
+                            <li>Session management</li>
+                            <li>Email verification</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h3><span class="icon">📁</span> Document Management</h3>
+                        <ul>
+                            <li>Upload multiple file types</li>
+                            <li>Categorize by document type</li>
+                            <li>Preview and download</li>
+                            <li>Edit metadata</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h3><span class="icon">👥</span> Family Sharing</h3>
+                        <ul>
+                            <li>Share via email or Aadhaar</li>
+                            <li>View-only or download access</li>
+                            <li>Track shared documents</li>
+                            <li>Revoke access anytime</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <h3><span class="icon">📊</span> Activity Tracking</h3>
+                        <ul>
+                            <li>Complete audit trail</li>
+                            <li>Real-time logging</li>
+                            <li>Activity dashboard</li>
+                            <li>Security monitoring</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">3 / 12</div>
+        </div>
+
+        <!-- Slide 4: Technical Architecture -->
+        <div class="slide" data-slide="4">
+            <div class="slide-header">
+                <h2 class="slide-title">🏗️ Technical Architecture</h2>
+                <p class="slide-subtitle">Modern, scalable, and secure</p>
+            </div>
+            <div class="slide-content">
+                <div class="two-column">
+                    <div class="section">
+                        <h3>Frontend Layer</h3>
+                        <ul>
+                            <li>React 18.3.1 with Hooks</li>
+                            <li>Tailwind CSS for styling</li>
+                            <li>Vite build tool</li>
+                            <li>React Router for navigation</li>
+                            <li>Lazy loading & code splitting</li>
+                            <li>Responsive design</li>
+                        </ul>
+                    </div>
+                    <div class="section">
+                        <h3>Backend Layer</h3>
+                        <ul>
+                            <li>Firebase Authentication</li>
+                            <li>Cloud Firestore database</li>
+                            <li>Cloud Storage for files</li>
+                            <li>Security rules enforcement</li>
+                            <li>Real-time synchronization</li>
+                            <li>Serverless architecture</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="architecture-flow">
+                    <div class="flow-step">
+                        <h4>1. User Layer → Authentication</h4>
+                        <p>Users authenticate via Firebase Auth with email/password and Aadhaar validation</p>
+                    </div>
+                    <div class="flow-step">
+                        <h4>2. Application Layer → Document Management</h4>
+                        <p>React components handle UI, state management, and user interactions</p>
+                    </div>
+                    <div class="flow-step">
+                        <h4>3. Data Layer → Cloud Storage</h4>
+                        <p>Firestore stores metadata, Cloud Storage holds files, all secured with rules</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">4 / 12</div>
+        </div>
+
+        <!-- Slide 5: Technology Stack -->
+        <div class="slide" data-slide="5">
+            <div class="slide-header">
+                <h2 class="slide-title">🛠️ Technology Stack</h2>
+                <p class="slide-subtitle">Built with modern, industry-standard technologies</p>
+            </div>
+            <div class="slide-content">
+                <div style="text-align: center;">
+                    <h3 style="color: #1e40af; font-size: 28px; margin-bottom: 25px;">Frontend Technologies</h3>
+                    <div class="tech-stack" style="justify-content: center;">
+                        <div class="tech-badge">React 18.3.1</div>
+                        <div class="tech-badge">JavaScript ES6+</div>
+                        <div class="tech-badge">Vite 5.4.2</div>
+                        <div class="tech-badge">Tailwind CSS 3.4.1</div>
+                        <div class="tech-badge">React Router 7.8.1</div>
+                        <div class="tech-badge">Lucide Icons</div>
+                        <div class="tech-badge">React Hot Toast</div>
+                    </div>
+
+                    <h3 style="color: #1e40af; font-size: 28px; margin: 40px 0 25px;">Backend & Infrastructure</h3>
+                    <div class="tech-stack" style="justify-content: center;">
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Firebase 12.1.0</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Firebase Auth</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Cloud Firestore</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Cloud Storage</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">Firebase Analytics</div>
+                    </div>
+
+                    <h3 style="color: #1e40af; font-size: 28px; margin: 40px 0 25px;">Development Tools</h3>
+                    <div class="tech-stack" style="justify-content: center;">
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">ESLint 9.9.1</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">PostCSS</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">Autoprefixer</div>
+                        <div class="tech-badge" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">Git</div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">5 / 12</div>
+        </div>
+
+        <!-- Slide 6: Security Features -->
+        <div class="slide" data-slide="6">
+            <div class="slide-header">
+                <h2 class="slide-title">🔒 Security Features</h2>
+                <p class="slide-subtitle">Enterprise-grade security implementation</p>
+            </div>
+            <div class="slide-content">
+                <div class="content-grid-3">
+                    <div class="card" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <h3><span class="icon">🛡️</span> Authentication</h3>
+                        <ul>
+                            <li>Firebase Auth</li>
+                            <li>Password hashing</li>
+                            <li>Session tokens</li>
+                            <li>Email verification</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <h3><span class="icon">🔐</span> Data Protection</h3>
+                        <ul>
+                            <li>Aadhaar masking</li>
+                            <li>Encrypted storage</li>
+                            <li>HTTPS only</li>
+                            <li>Access control</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+                        <h3><span class="icon">✅</span> Validation</h3>
+                        <ul>
+                            <li>Verhoeff algorithm</li>
+                            <li>File type checking</li>
+                            <li>Size restrictions</li>
+                            <li>Input sanitization</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="highlight" style="background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%); margin-top: 40px;">
+                    <h3 style="color: #7f1d1d;">🔐 Security Best Practices</h3>
+                    <p style="color: #991b1b; font-size: 17px; line-height: 1.8;">
+                        <strong>Firestore Security Rules:</strong> Restrict data access to authenticated users only<br>
+                        <strong>Storage Rules:</strong> Users can only access their own documents<br>
+                        <strong>Activity Logging:</strong> Complete audit trail for compliance<br>
+                        <strong>Environment Variables:</strong> Sensitive config never committed to repository
+                    </p>
+                </div>
+            </div>
+            <div class="slide-number">6 / 12</div>
+        </div>
+
+        <!-- Slide 7: User Workflow -->
+        <div class="slide" data-slide="7">
+            <div class="slide-header">
+                <h2 class="slide-title">👤 User Workflow</h2>
+                <p class="slide-subtitle">Simple and intuitive user experience</p>
+            </div>
+            <div class="slide-content">
+                <div class="architecture-flow">
+                    <div class="flow-step" style="border-left-color: #10b981;">
+                        <h4>1. Registration & Authentication</h4>
+                        <p>User creates account with email, password, and Aadhaar verification. Email verification is automatic.</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #3b82f6;">
+                        <h4>2. Document Upload</h4>
+                        <p>Upload documents (PDF, DOC, Images up to 5MB), categorize by type (Aadhaar, PAN, Passport, etc.), and add descriptions.</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #8b5cf6;">
+                        <h4>3. Document Management</h4>
+                        <p>View documents in grid layout, preview files, edit metadata, download originals, and search across all documents.</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #f59e0b;">
+                        <h4>4. Sharing & Collaboration</h4>
+                        <p>Share documents with family members via email or Aadhaar, set view-only or download permissions, track shared documents.</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #ef4444;">
+                        <h4>5. Profile & Activity</h4>
+                        <p>Manage profile information, view complete activity history, monitor security events, and review document statistics.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">7 / 12</div>
+        </div>
+
+        <!-- Slide 8: Project Structure -->
+        <div class="slide" data-slide="8">
+            <div class="slide-header">
+                <h2 class="slide-title">📂 Project Structure</h2>
+                <p class="slide-subtitle">Clean, modular, and maintainable codebase</p>
+            </div>
+            <div class="slide-content">
+                <div class="two-column">
+                    <div class="section">
+                        <h3>Components</h3>
+                        <ul>
+                            <li><strong>auth/</strong> - Login & Registration</li>
+                            <li><strong>common/</strong> - Reusable UI components</li>
+                            <li><strong>dashboard/</strong> - Document management</li>
+                            <li><strong>layout/</strong> - Header & Sidebar</li>
+                            <li><strong>profile/</strong> - User profile</li>
+                            <li><strong>settings/</strong> - App settings</li>
+                        </ul>
+                    </div>
+                    <div class="section">
+                        <h3>Services & Utils</h3>
+                        <ul>
+                            <li><strong>services/</strong> - Auth & Document APIs</li>
+                            <li><strong>hooks/</strong> - Custom React hooks</li>
+                            <li><strong>utils/</strong> - Validation & helpers</li>
+                            <li><strong>config/</strong> - Firebase setup</li>
+                            <li><strong>constants/</strong> - App-wide constants</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="highlight">
+                    <h3>🎯 Architectural Principles</h3>
+                    <p>
+                        <strong>Single Responsibility:</strong> Each component has one clear purpose<br>
+                        <strong>Separation of Concerns:</strong> Business logic separated from UI<br>
+                        <strong>DRY Principle:</strong> Reusable components and custom hooks<br>
+                        <strong>Lazy Loading:</strong> Components loaded on demand for performance
+                    </p>
+                </div>
+            </div>
+            <div class="slide-number">8 / 12</div>
+        </div>
+
+        <!-- Slide 9: Key Features Details -->
+        <div class="slide" data-slide="9">
+            <div class="slide-header">
+                <h2 class="slide-title">🎨 User Interface Highlights</h2>
+                <p class="slide-subtitle">Beautiful, responsive, and accessible</p>
+            </div>
+            <div class="slide-content">
+                <div class="content-grid">
+                    <div class="card" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+                        <h3><span class="icon">📱</span> Responsive Design</h3>
+                        <ul>
+                            <li>Mobile-first approach</li>
+                            <li>Breakpoints for all devices</li>
+                            <li>Touch-friendly interface</li>
+                            <li>Adaptive layouts</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <h3><span class="icon">🎭</span> Modern UI/UX</h3>
+                        <ul>
+                            <li>Gradient backgrounds</li>
+                            <li>Smooth animations</li>
+                            <li>Intuitive navigation</li>
+                            <li>Loading states</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <h3><span class="icon">♿</span> Accessibility</h3>
+                        <ul>
+                            <li>Semantic HTML</li>
+                            <li>ARIA labels</li>
+                            <li>Keyboard navigation</li>
+                            <li>Color contrast</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <h3><span class="icon">⚡</span> Performance</h3>
+                        <ul>
+                            <li>Code splitting</li>
+                            <li>Lazy loading</li>
+                            <li>Debounced search</li>
+                            <li>Optimized builds</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="stats-grid" style="margin-top: 30px;">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                        <div class="stat-number">40+</div>
+                        <div class="stat-label">Components</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <div class="stat-number">15+</div>
+                        <div class="stat-label">Services</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <div class="stat-number">5MB</div>
+                        <div class="stat-label">Max File Size</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <div class="stat-number">100%</div>
+                        <div class="stat-label">Secure</div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">9 / 12</div>
+        </div>
+
+        <!-- Slide 10: Testing & Quality -->
+        <div class="slide" data-slide="10">
+            <div class="slide-header">
+                <h2 class="slide-title">🧪 Testing & Quality Assurance</h2>
+                <p class="slide-subtitle">Ensuring reliability and security</p>
+            </div>
+            <div class="slide-content">
+                <div class="two-column">
+                    <div class="section">
+                        <h3>Validation Testing</h3>
+                        <ul>
+                            <li>Aadhaar Verhoeff algorithm</li>
+                            <li>RFC-compliant email validation</li>
+                            <li>Indian phone number format</li>
+                            <li>File type restrictions</li>
+                            <li>File size limits (5MB)</li>
+                            <li>Input sanitization</li>
+                        </ul>
+                    </div>
+                    <div class="section">
+                        <h3>Security Testing</h3>
+                        <ul>
+                            <li>Authentication flows</li>
+                            <li>Access control rules</li>
+                            <li>Data isolation</li>
+                            <li>XSS prevention</li>
+                            <li>CSRF protection</li>
+                            <li>Secure file handling</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="section" style="margin-top: 30px;">
+                    <h3>Code Quality Standards</h3>
+                    <ul>
+                        <li><strong>ESLint:</strong> JavaScript and React best practices enforcement</li>
+                        <li><strong>Component Architecture:</strong> Functional components with React hooks</li>
+                        <li><strong>Error Handling:</strong> Comprehensive try-catch blocks and user feedback</li>
+                        <li><strong>Documentation:</strong> Inline comments and README documentation</li>
+                        <li><strong>Performance:</strong> Lazy loading, code splitting, and optimization</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="slide-number">10 / 12</div>
+        </div>
+
+        <!-- Slide 11: Deployment & DevOps -->
+        <div class="slide" data-slide="11">
+            <div class="slide-header">
+                <h2 class="slide-title">🚀 Deployment & DevOps</h2>
+                <p class="slide-subtitle">Production-ready deployment strategy</p>
+            </div>
+            <div class="slide-content">
+                <div class="architecture-flow">
+                    <div class="flow-step" style="border-left-color: #3b82f6;">
+                        <h4>1. Build Process</h4>
+                        <p><code>npm run build</code> - Creates optimized production build with Vite (dist/ directory)</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #f59e0b;">
+                        <h4>2. Firebase Hosting (Recommended)</h4>
+                        <p>Deploy to Firebase Hosting with automatic HTTPS, CDN distribution, and global edge network</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #10b981;">
+                        <h4>3. Alternative Platforms</h4>
+                        <p>Compatible with Vercel, Netlify, AWS S3, and other static hosting providers</p>
+                    </div>
+                    <div class="flow-step" style="border-left-color: #8b5cf6;">
+                        <h4>4. Environment Configuration</h4>
+                        <p>Environment variables managed securely, never committed to repository</p>
+                    </div>
+                </div>
+                <div class="two-column" style="margin-top: 30px;">
+                    <div class="section">
+                        <h3>Hosting Options</h3>
+                        <ul>
+                            <li>Firebase Hosting</li>
+                            <li>Vercel</li>
+                            <li>Netlify</li>
+                            <li>AWS S3 + CloudFront</li>
+                        </ul>
+                    </div>
+                    <div class="section">
+                        <h3>DevOps Features</h3>
+                        <ul>
+                            <li>CI/CD ready</li>
+                            <li>Automated builds</li>
+                            <li>Version control (Git)</li>
+                            <li>Environment management</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-number">11 / 12</div>
+        </div>
+
+        <!-- Slide 12: Conclusion -->
+        <div class="slide" data-slide="12">
+            <div class="slide-header">
+                <h2 class="slide-title">🎯 Conclusion & Future Scope</h2>
+                <p class="slide-subtitle">Project achievements and roadmap</p>
+            </div>
+            <div class="slide-content">
+                <div class="section" style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); margin-bottom: 25px;">
+                    <h3 style="color: #5b21b6;">✅ Key Achievements</h3>
+                    <ul style="color: #6b21a8;">
+                        <li>Complete document management system with secure storage</li>
+                        <li>Firebase integration with authentication and real-time sync</li>
+                        <li>Family sharing with granular permissions</li>
+                        <li>Activity logging and audit trail</li>
+                        <li>Responsive, accessible UI with modern design</li>
+                        <li>Production-ready with comprehensive security</li>
+                    </ul>
+                </div>
+                <div class="two-column">
+                    <div class="section" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+                        <h3 style="color: #78350f;">🚀 Future Enhancements</h3>
+                        <ul style="color: #92400e;">
+                            <li>OCR text extraction</li>
+                            <li>Document expiry alerts</li>
+                            <li>Multi-language support</li>
+                            <li>Mobile app (React Native)</li>
+                            <li>AI-powered categorization</li>
+                        </ul>
+                    </div>
+                    <div class="section" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);">
+                        <h3 style="color: #1e3a8a;">🎓 Learning Outcomes</h3>
+                        <ul style="color: #1e40af;">
+                            <li>React ecosystem mastery</li>
+                            <li>Firebase platform expertise</li>
+                            <li>Security best practices</li>
+                            <li>Modern UI/UX design</li>
+                            <li>Full-stack development</li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px;">
+                    <h2 style="color: white; font-size: 36px; margin-bottom: 15px;">Thank You! 🙏</h2>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 20px;">SecureGov Docs - Empowering Digital India</p>
+                </div>
+            </div>
+            <div class="slide-number">12 / 12</div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-button" id="prevBtn" onclick="changeSlide(-1)">←</button>
+        <button class="nav-button" id="nextBtn" onclick="changeSlide(1)">→</button>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 12;
+
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            if (n > totalSlides) { currentSlide = 1; }
+            if (n < 1) { currentSlide = totalSlides; }
+
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[currentSlide - 1].classList.add('active');
+
+            // Update button states
+            document.getElementById('prevBtn').disabled = currentSlide === 1;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+        }
+
+        function changeSlide(n) {
+            currentSlide += n;
+            showSlide(currentSlide);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+        });
+
+        // Initialize
+        showSlide(currentSlide);
+    </script>
+</body>
+</html>
